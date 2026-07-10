@@ -32,6 +32,16 @@ func TestSentinelErrors(t *testing.T) {
 			err:   ErrDatabase,
 			match: ErrDatabase,
 		},
+		{
+			name:  "ErrScrapeFailed is comparable",
+			err:   ErrScrapeFailed,
+			match: ErrScrapeFailed,
+		},
+		{
+			name:  "ErrParseFailed is comparable",
+			err:   ErrParseFailed,
+			match: ErrParseFailed,
+		},
 	}
 
 	for _, tt := range tests {
@@ -44,7 +54,7 @@ func TestSentinelErrors(t *testing.T) {
 }
 
 func TestSentinelErrorsAreDistinct(t *testing.T) {
-	errs := []error{ErrNotFound, ErrDuplicateRate, ErrInvalidInput, ErrDatabase}
+	errs := []error{ErrNotFound, ErrDuplicateRate, ErrInvalidInput, ErrDatabase, ErrScrapeFailed, ErrParseFailed}
 
 	for i := 0; i < len(errs); i++ {
 		for j := i + 1; j < len(errs); j++ {

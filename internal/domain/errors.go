@@ -14,4 +14,10 @@ var (
 
 	// ErrDatabase indicates a database operation failed.
 	ErrDatabase = errors.New("database error")
+
+	// ErrScrapeFailed indicates a scraper HTTP request failed.
+	ErrScrapeFailed = errors.New("scrape failed")
+
+	// ErrParseFailed indicates HTML parsing of scraped content failed.
+	ErrParseFailed = errors.New("parse failed")
 )
