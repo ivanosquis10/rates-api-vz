@@ -4,6 +4,8 @@ import (
 	"errors"
 	"os"
 	"strconv"
+
+	"github.com/joho/godotenv"
 )
 
 var (
@@ -28,8 +30,13 @@ const (
 )
 
 // Load reads configuration from environment variables.
+// It first attempts to load a .env file (non-fatal if missing),
+// then allows environment variable overrides.
 // Returns an error if API_KEY is missing or empty.
 func Load() (*Config, error) {
+	// Load .env file if present (ignore error if missing)
+	_ = godotenv.Load()
+
 	apiKey := os.Getenv("API_KEY")
 	if apiKey == "" {
 		return nil, ErrMissingAPIKey
