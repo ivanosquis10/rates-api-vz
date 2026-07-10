@@ -75,7 +75,13 @@ go mod download
 
 ### Configuration
 
-All configuration is via environment variables:
+All configuration is via environment variables. Copy the example file and fill in your values:
+
+```bash
+cp .env.example .env
+```
+
+Required variables:
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
