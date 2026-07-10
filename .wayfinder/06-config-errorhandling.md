@@ -10,7 +10,7 @@ How should configuration be managed and errors handled across the API?
 
 ## Resolution
 
-### Configuration (env vars only)
+### Configuration (.env + env vars)
 
 ```go
 // config/config.go
@@ -25,10 +25,17 @@ type Config struct {
 }
 
 func Load() (*Config, error) {
-    // Use caarlos0/env or manual os.Getenv + validation
+    // Load from .env file if present (local dev)
+    // Environment variables override .env (production)
     // Fail fast if required vars missing
 }
 ```
+
+**Configuration approach:**
+- `.env` file for local development (gitignored)
+- `.env.example` documents all variables with descriptions and defaults
+- Environment variables override `.env` values (production)
+- Library: `joho/godotenv` for .env loading + `os.Getenv` for reading
 
 **Required env vars:**
 | Var | Required | Default | Description |

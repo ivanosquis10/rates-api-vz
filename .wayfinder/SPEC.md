@@ -67,7 +67,7 @@ Build a Go API that automatically scrapes the BCV website daily to collect excha
 
 ### Configuration
 
-32. As a system operator, I want all configuration to be loaded from environment variables, so that the API follows 12-factor app principles.
+32. As a system operator, I want configuration to be loaded from a `.env` file in development and environment variables in production, so that local development is easy and production follows 12-factor principles.
 33. As a system operator, I want the API to fail fast on startup if required environment variables (like API_KEY) are missing, so that misconfigurations are caught immediately.
 34. As a system operator, I want sensible defaults for optional configuration (port, DB path, scrape hour, rate limit), so that the API works out of the box.
 
@@ -136,7 +136,9 @@ Build a Go API that automatically scrapes the BCV website daily to collect excha
 
 ### Configuration
 
-- Environment variables only (no .env files, no YAML)
+- `.env` file for local development, environment variables for production
+- `.env.example` documents all required variables with descriptions and defaults
+- `.env` is gitignored to prevent leaking secrets
 - Required: `API_KEY`
 - Optional with defaults: `PORT` (8080), `DB_PATH` (./rates.db), `SCRAPE_HOUR` (8), `RATE_LIMIT` (60)
 - Fail-fast validation on startup

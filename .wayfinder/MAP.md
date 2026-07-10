@@ -15,7 +15,7 @@ A production-ready Go API that scrapes daily exchange rates (USD/EUR) from BCV (
 - **Currencies**: USD and EUR only
 - **Rates to expose**: Both BCV reference rates AND bank buy/sell rates
 - **DI**: Manual injection in main.go
-- **Config**: Env vars only (os.Getenv + validation)
+- **Config**: `.env` for local dev, env vars for production (joho/godotenv)
 - **Logging**: slog (JSON structured, stdlib)
 - **Rate limiter**: Per-IP, configurable via env var
 
