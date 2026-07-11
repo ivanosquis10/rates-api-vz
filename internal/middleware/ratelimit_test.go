@@ -77,11 +77,19 @@ func TestRateLimit_LimitCapacity(t *testing.T) {
 	if errorResp.Success {
 		t.Error("expected success to be false")
 	}
-	if errorResp.ErrorCode == nil || *errorResp.ErrorCode != "RATE_LIMITED" {
-		t.Errorf("expected error_code RATE_LIMITED, got %v", errorResp.ErrorCode)
+	if errorResp.Code == nil || *errorResp.Code != "RATE_LIMITED" {
+		t.Errorf("expected code RATE_LIMITED, got %v", errorResp.Code)
 	}
 	if errorResp.Error == nil || *errorResp.Error != "too many requests" {
 		t.Errorf("expected error message 'too many requests', got %v", errorResp.Error)
+	}
+
+	var raw map[string]any
+	if err := json.Unmarshal(w3.Body.Bytes(), &raw); err != nil {
+		t.Fatalf("failed to unmarshal raw response: %v", err)
+	}
+	if _, exists := raw["data"]; exists {
+		t.Error("expected 'data' key to be omitted on error")
 	}
 }
 

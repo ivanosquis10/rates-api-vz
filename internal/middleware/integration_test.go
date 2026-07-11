@@ -19,7 +19,7 @@ func TestMiddleware_ExecutionOrder(t *testing.T) {
 	type responseEnvelope struct {
 		Success   bool    `json:"success"`
 		Data      any     `json:"data"`
-		ErrorCode *string `json:"error_code"`
+		Code      *string `json:"code"`
 		Error     *string `json:"error"`
 		RequestID string  `json:"request_id"`
 	}
@@ -70,8 +70,16 @@ func TestMiddleware_ExecutionOrder(t *testing.T) {
 		if resp.Success {
 			t.Error("expected success to be false")
 		}
-		if resp.ErrorCode == nil || *resp.ErrorCode != "RATE_LIMITED" {
-			t.Errorf("expected error_code RATE_LIMITED, got %v", resp.ErrorCode)
+		if resp.Code == nil || *resp.Code != "RATE_LIMITED" {
+			t.Errorf("expected code RATE_LIMITED, got %v", resp.Code)
+		}
+
+		var raw map[string]any
+		if err := json.Unmarshal(w.Body.Bytes(), &raw); err != nil {
+			t.Fatalf("failed to unmarshal raw response: %v", err)
+		}
+		if _, exists := raw["data"]; exists {
+			t.Error("expected 'data' key to be omitted on error")
 		}
 	}
 
@@ -94,8 +102,16 @@ func TestMiddleware_ExecutionOrder(t *testing.T) {
 		if resp.Success {
 			t.Error("expected success to be false")
 		}
-		if resp.ErrorCode == nil || *resp.ErrorCode != "UNAUTHORIZED" {
-			t.Errorf("expected error_code UNAUTHORIZED, got %v", resp.ErrorCode)
+		if resp.Code == nil || *resp.Code != "UNAUTHORIZED" {
+			t.Errorf("expected code UNAUTHORIZED, got %v", resp.Code)
+		}
+
+		var raw map[string]any
+		if err := json.Unmarshal(w.Body.Bytes(), &raw); err != nil {
+			t.Fatalf("failed to unmarshal raw response: %v", err)
+		}
+		if _, exists := raw["data"]; exists {
+			t.Error("expected 'data' key to be omitted on error")
 		}
 	}
 }
