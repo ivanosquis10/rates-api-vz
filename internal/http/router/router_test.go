@@ -159,6 +159,16 @@ func TestRouter_Middleware_Auth(t *testing.T) {
 			if w.Code != tt.expectedStatus {
 				t.Errorf("expected status %d, got %d", tt.expectedStatus, w.Code)
 			}
+
+			if w.Header().Get("X-Request-ID") == "" {
+				t.Error("expected X-Request-ID response header to be set, but it was empty")
+			}
+			var raw map[string]any
+			if err := json.Unmarshal(w.Body.Bytes(), &raw); err == nil {
+				if _, exists := raw["request_id"]; exists {
+					t.Error("expected request_id to be absent in JSON body")
+				}
+			}
 		})
 	}
 }
@@ -212,8 +222,11 @@ func TestRouter_NotFound(t *testing.T) {
 	if raw["error"] != "endpoint not found" {
 		t.Errorf("expected error to be 'endpoint not found', got %v", raw["error"])
 	}
-	if _, exists := raw["request_id"]; !exists {
-		t.Error("expected request_id to be present")
+	if w.Header().Get("X-Request-ID") == "" {
+		t.Error("expected X-Request-ID response header to be set, but it was empty")
+	}
+	if _, exists := raw["request_id"]; exists {
+		t.Error("expected request_id to be absent in JSON body")
 	}
 	if _, exists := raw["data"]; exists {
 		t.Error("expected 'data' to be absent")

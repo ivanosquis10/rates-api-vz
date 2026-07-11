@@ -34,4 +34,3 @@ func Auth(apiKey string) func(http.Handler) http.Handler {
 		})
 	}
 }
-

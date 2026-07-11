@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	chimw "github.com/go-chi/chi/v5/middleware"
 	"golang.org/x/time/rate"
 )
 
@@ -51,10 +52,16 @@ func TestRateLimit_LimitCapacity(t *testing.T) {
 	// 3rd request (should exceed limit)
 	req3 := httptest.NewRequest(http.MethodGet, "/", nil)
 	req3.RemoteAddr = "1.2.3.4:1234"
+	ctxVal := context.WithValue(req3.Context(), chimw.RequestIDKey, "test-rate-req-id")
+	req3 = req3.WithContext(ctxVal)
 	w3 := httptest.NewRecorder()
 	handler.ServeHTTP(w3, req3)
 	if w3.Code != http.StatusTooManyRequests {
 		t.Errorf("request 3: expected 429, got %d", w3.Code)
+	}
+
+	if got := w3.Header().Get("X-Request-ID"); got != "test-rate-req-id" {
+		t.Errorf("expected X-Request-ID header %q, got %q", "test-rate-req-id", got)
 	}
 
 	retryAfterStr := w3.Header().Get("Retry-After")
@@ -90,6 +97,9 @@ func TestRateLimit_LimitCapacity(t *testing.T) {
 	}
 	if _, exists := raw["data"]; exists {
 		t.Error("expected 'data' key to be omitted on error")
+	}
+	if _, exists := raw["request_id"]; exists {
+		t.Error("expected 'request_id' key to be omitted from JSON body")
 	}
 }
 
