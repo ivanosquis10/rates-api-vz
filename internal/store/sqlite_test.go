@@ -391,8 +391,8 @@ func TestGetLatestRatesMultiTimestamp(t *testing.T) {
 
 	base := time.Date(2026, 7, 10, 0, 0, 0, 0, time.UTC)
 	rates := []domain.Rate{
-		createTestRate("USD", "reference", "", base.Add(10*time.Hour), 36.00),  // 10:00
-		createTestRate("USD", "reference", "", base.Add(12*time.Hour), 36.50),  // 12:00 — should win
+		createTestRate("USD", "reference", "", base.Add(10*time.Hour), 36.00), // 10:00
+		createTestRate("USD", "reference", "", base.Add(12*time.Hour), 36.50), // 12:00 — should win
 	}
 
 	if err := s.SaveRates(ctx, rates); err != nil {
@@ -461,7 +461,7 @@ func TestGetHistoryRatesTableDriven(t *testing.T) {
 	base := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
 	rates := []domain.Rate{
 		// USD reference on 3 dates
-		createTestRate("USD", "reference", "", base.Add(0), 36.00),      // Jul 1
+		createTestRate("USD", "reference", "", base.Add(0), 36.00),              // Jul 1
 		createTestRate("USD", "reference", "", base.Add(4*24*time.Hour), 36.50), // Jul 5
 		createTestRate("USD", "reference", "", base.Add(9*24*time.Hour), 37.00), // Jul 10
 		// USD parallel on same dates

@@ -51,7 +51,7 @@ func (h *Handler) GetHistory(w http.ResponseWriter, r *http.Request) {
 
 // TriggerScrape handles POST /admin/scrape.
 func (h *Handler) TriggerScrape(w http.ResponseWriter, r *http.Request) {
-	count, err := h.uc.ScrapeRates(r.Context())
+	rates, err := h.uc.ScrapeRates(r.Context())
 	if err != nil {
 		status, code := mapError(err)
 		respondError(w, status, code, "internal server error")
@@ -61,7 +61,7 @@ func (h *Handler) TriggerScrape(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusAccepted, map[string]interface{}{
 		"data": map[string]interface{}{
 			"message":       "scrape triggered",
-			"rates_scraped": count,
+			"rates_scraped": len(rates),
 		},
 	})
 }

@@ -22,17 +22,17 @@ func NewRateUsecase(repo domain.Repository, s scraper.Scraper) *RateUsecase {
 }
 
 // ScrapeRates calls the scraper and persists results.
-func (uc *RateUsecase) ScrapeRates(ctx context.Context) (int, error) {
+func (uc *RateUsecase) ScrapeRates(ctx context.Context) ([]domain.Rate, error) {
 	rates, err := uc.scraper.Scrape(ctx)
 	if err != nil {
 		slog.Error("scrape failed", "method", "ScrapeRates", "error", err)
-		return 0, fmt.Errorf("ScrapeRates scrape: %w", err)
+		return nil, fmt.Errorf("ScrapeRates scrape: %w", err)
 	}
 	if err := uc.repo.SaveRates(ctx, rates); err != nil {
 		slog.Error("save rates failed", "method", "ScrapeRates", "error", err)
-		return 0, fmt.Errorf("ScrapeRates save: %w", err)
+		return nil, fmt.Errorf("ScrapeRates save: %w", err)
 	}
-	return len(rates), nil
+	return rates, nil
 }
 
 // GetCurrentRates returns latest rates, optionally filtered by rateType.

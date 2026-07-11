@@ -3,15 +3,17 @@ module github.com/ivanosquis10/api-rates-venezuela
 go 1.25.0
 
 require (
+	github.com/PuerkitoBio/goquery v1.12.0
+	github.com/go-chi/chi/v5 v5.3.1
 	github.com/joho/godotenv v1.5.1
+	github.com/robfig/cron/v3 v3.0.1
+	golang.org/x/time v0.15.0
 	modernc.org/sqlite v1.53.0
 )
 
 require (
-	github.com/PuerkitoBio/goquery v1.12.0 // indirect
 	github.com/andybalholm/cascadia v1.3.3 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
-	github.com/go-chi/chi/v5 v5.3.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect

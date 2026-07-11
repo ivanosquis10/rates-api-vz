@@ -7,10 +7,10 @@ import (
 
 func TestSentinelErrors(t *testing.T) {
 	tests := []struct {
-		name     string
-		err      error
-		wrap     string
-		match    error
+		name  string
+		err   error
+		wrap  string
+		match error
 	}{
 		{
 			name:  "ErrNotFound is comparable",

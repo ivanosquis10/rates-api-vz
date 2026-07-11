@@ -12,7 +12,7 @@ import (
 type Usecaser interface {
 	GetCurrentRates(ctx context.Context, currency, rateType string) ([]domain.Rate, error)
 	GetHistoryRates(ctx context.Context, currency, rateType, from, to string, limit int) ([]domain.Rate, error)
-	ScrapeRates(ctx context.Context) (int, error)
+	ScrapeRates(ctx context.Context) ([]domain.Rate, error)
 }
 
 // Handler holds the usecase dependency for all HTTP handlers.

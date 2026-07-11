@@ -26,11 +26,11 @@ type BCVScraper struct {
 
 // Selector constants — isolated for easy update when BCV changes HTML.
 const (
-	selUSDRate  = "#dolar .strong-tb"
-	selEURRate  = "#euro .strong-tb"
+	selUSDRate   = "#dolar .strong-tb"
+	selEURRate   = "#euro .strong-tb"
 	selBankTable = ".views-table tbody tr"
-	selDate     = ".date-display-single"
-	selDateAttr = "content"
+	selDate      = ".date-display-single"
+	selDateAttr  = "content"
 )
 
 // NewBCVScraper creates a new BCVScraper with the given HTTP client and URLs.

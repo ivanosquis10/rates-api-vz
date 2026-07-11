@@ -62,8 +62,7 @@ internal/
 
 ### Prerequisites
 
-- Go 1.25+
-- GCC (for CGO, if using non-pure-Go SQLite driver)
+- Go 1.25+ (pure Go SQLite is used, CGO is **not** required)
 
 ### Installation
 
@@ -75,30 +74,46 @@ go mod download
 
 ### Configuration
 
-All configuration is via environment variables. Copy the example file and fill in your values:
+All configuration is loaded via environment variables. Prepare your local environment by copying the example file:
 
 ```bash
 cp .env.example .env
 ```
 
-Required variables:
+Ensure you configure `API_KEY` in your `.env` file.
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `PORT` | No | `8080` | Server port |
 | `DB_PATH` | No | `./rates.db` | SQLite database path |
-| `API_KEY` | **Yes** | — | API key for authentication |
-| `SCRAPE_HOUR` | No | `8` | Hour to run daily scraping (0-23) |
-| `RATE_LIMIT` | No | `60` | Requests per minute per IP |
+| `API_KEY` | **Yes** | — | API key for authorization in `X-API-Key` header |
+| `SCRAPE_HOUR` | No | `8` | Hour to execute daily scraping in Caracas timezone (0-23) |
+| `RATE_LIMIT` | No | `60` | Max requests allowed per minute per IP address |
 
-### Run
+### Running the Project
 
+#### Standard Run
 ```bash
-# Set required env var
-export API_KEY="your-secret-key"
-
-# Run the server
 go run cmd/api/main.go
+```
+
+#### Run with Live-Reload (Recommended for Development)
+We support live-reloading using [Air](https://github.com/air-verse/air).
+
+1. Install Air:
+```bash
+go install github.com/air-verse/air@latest
+```
+2. Start the project in live-reloading mode:
+```bash
+air
+```
+
+### Testing
+
+Run the test suite with the following command:
+```bash
+go test -v ./...
 ```
 
 ## API Endpoints
@@ -173,19 +188,19 @@ Returns immediately. Scraping runs in the background.
 
 ## Project Status
 
-This project is in **planning phase**. All architecture decisions are documented in `.wayfinder/`.
+This project is **production-ready** and fully implemented following the design documents in `.wayfinder/` and the structured SDD specifications in `openspec/`.
 
 ### Implementation Tickets
 
 | # | Ticket | Status |
 |---|--------|--------|
-| 1 | [Project Scaffolding](https://github.com/ivanosquis10/api-rates-venezuela/issues/2) | 🔲 Ready |
-| 2 | [SQLite Repository](https://github.com/ivanosquis10/api-rates-venezuela/issues/3) | 🔲 Blocked |
-| 3 | [BCV Scraper](https://github.com/ivanosquis10/api-rates-venezuela/issues/4) | 🔲 Blocked |
-| 4 | [Rate Usecase](https://github.com/ivanosquis10/api-rates-venezuela/issues/5) | 🔲 Blocked |
-| 5 | [HTTP Server & Endpoints](https://github.com/ivanosquis10/api-rates-venezuela/issues/6) | 🔲 Blocked |
-| 6 | [Auth & Rate Limiter](https://github.com/ivanosquis10/api-rates-venezuela/issues/7) | 🔲 Blocked |
-| 7 | [Scheduler & Logging](https://github.com/ivanosquis10/api-rates-venezuela/issues/8) | 🔲 Blocked |
+| 1 | [Project Scaffolding](https://github.com/ivanosquis10/api-rates-venezuela/issues/2) | ✅ Complete |
+| 2 | [SQLite Repository](https://github.com/ivanosquis10/api-rates-venezuela/issues/3) | ✅ Complete |
+| 3 | [BCV Scraper](https://github.com/ivanosquis10/api-rates-venezuela/issues/4) | ✅ Complete |
+| 4 | [Rate Usecase](https://github.com/ivanosquis10/api-rates-venezuela/issues/5) | ✅ Complete |
+| 5 | [HTTP Server & Endpoints](https://github.com/ivanosquis10/api-rates-venezuela/issues/6) | ✅ Complete |
+| 6 | [Auth & Rate Limiter](https://github.com/ivanosquis10/api-rates-venezuela/issues/7) | ✅ Complete |
+| 7 | [Scheduler & Logging](https://github.com/ivanosquis10/api-rates-venezuela/issues/8) | ✅ Complete |
 
 ## License
 

@@ -9,8 +9,8 @@ import (
 // Verify that a concrete type can satisfy the Repository interface at compile time.
 type testRepository struct{}
 
-func (testRepository) SaveRates(_ context.Context, _ []Rate) error                        { return nil }
-func (testRepository) GetLatestRates(_ context.Context, _ string) ([]Rate, error)         { return nil, nil }
+func (testRepository) SaveRates(_ context.Context, _ []Rate) error                { return nil }
+func (testRepository) GetLatestRates(_ context.Context, _ string) ([]Rate, error) { return nil, nil }
 func (testRepository) GetHistoryRates(_ context.Context, _, _, _, _ string, _ int) ([]Rate, error) {
 	return nil, nil
 }

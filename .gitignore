@@ -27,3 +27,9 @@ vendor/
 .DS_Store
 Thumbs.db
 .atl
+.agents/
+tmp/
+air.log
+*.db
+*.db-journal
+*.db-wal

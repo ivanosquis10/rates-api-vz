@@ -19,7 +19,7 @@ import (
 type mockUsecase struct {
 	getCurrentRatesFn func(ctx context.Context, currency, rateType string) ([]domain.Rate, error)
 	getHistoryRatesFn func(ctx context.Context, currency, rateType, from, to string, limit int) ([]domain.Rate, error)
-	scrapeRatesFn     func(ctx context.Context) (int, error)
+	scrapeRatesFn     func(ctx context.Context) ([]domain.Rate, error)
 }
 
 func (m *mockUsecase) GetCurrentRates(ctx context.Context, currency, rateType string) ([]domain.Rate, error) {
@@ -30,7 +30,7 @@ func (m *mockUsecase) GetHistoryRates(ctx context.Context, currency, rateType, f
 	return m.getHistoryRatesFn(ctx, currency, rateType, from, to, limit)
 }
 
-func (m *mockUsecase) ScrapeRates(ctx context.Context) (int, error) {
+func (m *mockUsecase) ScrapeRates(ctx context.Context) ([]domain.Rate, error) {
 	return m.scrapeRatesFn(ctx)
 }
 
@@ -227,8 +227,8 @@ func TestGetHistory_InvalidLimit(t *testing.T) {
 
 func TestTriggerScrape_Success(t *testing.T) {
 	mock := &mockUsecase{
-		scrapeRatesFn: func(ctx context.Context) (int, error) {
-			return 12, nil
+		scrapeRatesFn: func(ctx context.Context) ([]domain.Rate, error) {
+			return make([]domain.Rate, 12), nil
 		},
 	}
 
@@ -244,8 +244,8 @@ func TestTriggerScrape_Success(t *testing.T) {
 
 	var body struct {
 		Data struct {
-			Message     string `json:"message"`
-			RatesScraped int   `json:"rates_scraped"`
+			Message      string `json:"message"`
+			RatesScraped int    `json:"rates_scraped"`
 		} `json:"data"`
 	}
 	if err := json.NewDecoder(w.Body).Decode(&body); err != nil {
@@ -261,8 +261,8 @@ func TestTriggerScrape_Success(t *testing.T) {
 
 func TestTriggerScrape_Error(t *testing.T) {
 	mock := &mockUsecase{
-		scrapeRatesFn: func(ctx context.Context) (int, error) {
-			return 0, domain.ErrScrapeFailed
+		scrapeRatesFn: func(ctx context.Context) ([]domain.Rate, error) {
+			return nil, domain.ErrScrapeFailed
 		},
 	}
 
@@ -399,10 +399,10 @@ func TestVerification_ResponseEnvelopeConsistency(t *testing.T) {
 			wantKey: "error",
 		},
 		{
-			name:   "400 uses error envelope",
-			method: http.MethodGet,
-			path:   "/rates/history?limit=abc",
-			mock:   &mockUsecase{},
+			name:    "400 uses error envelope",
+			method:  http.MethodGet,
+			path:    "/rates/history?limit=abc",
+			mock:    &mockUsecase{},
 			wantKey: "error",
 		},
 		{
@@ -410,8 +410,8 @@ func TestVerification_ResponseEnvelopeConsistency(t *testing.T) {
 			method: http.MethodPost,
 			path:   "/admin/scrape",
 			mock: &mockUsecase{
-				scrapeRatesFn: func(ctx context.Context) (int, error) {
-					return 5, nil
+				scrapeRatesFn: func(ctx context.Context) ([]domain.Rate, error) {
+					return make([]domain.Rate, 5), nil
 				},
 			},
 			wantKey: "data",

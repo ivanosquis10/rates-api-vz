@@ -1,12 +1,14 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	_ "time/tzdata"
 
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
@@ -14,12 +16,16 @@ import (
 	"github.com/ivanosquis10/api-rates-venezuela/internal/config"
 	"github.com/ivanosquis10/api-rates-venezuela/internal/handler"
 	"github.com/ivanosquis10/api-rates-venezuela/internal/middleware"
+	"github.com/ivanosquis10/api-rates-venezuela/internal/scheduler"
 	"github.com/ivanosquis10/api-rates-venezuela/internal/scraper"
 	"github.com/ivanosquis10/api-rates-venezuela/internal/store"
 	"github.com/ivanosquis10/api-rates-venezuela/internal/usecase"
 )
 
 func main() {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	// Structured logger
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
@@ -49,6 +55,9 @@ func main() {
 	uc := usecase.NewRateUsecase(repo, bcvScraper)
 	h := handler.NewHandler(uc)
 
+	sched := scheduler.NewScheduler(uc, cfg.ScrapeHour)
+	sched.Start(ctx)
+
 	// Build Chi router
 	r := chi.NewRouter()
 
@@ -59,6 +68,8 @@ func main() {
 	// Custom middleware: recovery first, then logging
 	r.Use(middleware.Recovery)
 	r.Use(middleware.Logging)
+	r.Use(middleware.RateLimit(ctx, cfg.RateLimit))
+	r.Use(middleware.Auth(cfg.APIKey))
 
 	// Routes
 	r.Get("/rates", h.GetRates)
@@ -88,4 +99,9 @@ func main() {
 
 	<-quit
 	slog.Info("server shutting down")
+	cancel()
+
+	slog.Info("stopping scheduler")
+	<-sched.Stop().Done()
+	slog.Info("scheduler stopped")
 }

@@ -53,13 +53,13 @@ func TestScrapeRates_Success(t *testing.T) {
 
 	uc := NewRateUsecase(repo, scraper)
 
-	count, err := uc.ScrapeRates(context.Background())
+	scrapedRates, err := uc.ScrapeRates(context.Background())
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if count != 2 {
-		t.Errorf("expected count 2, got %d", count)
+	if len(scrapedRates) != 2 {
+		t.Errorf("expected 2 rates, got %d", len(scrapedRates))
 	}
 	if len(repo.savedRates) != 2 {
 		t.Errorf("expected SaveRates to be called with 2 rates, got %d", len(repo.savedRates))
@@ -72,13 +72,13 @@ func TestScrapeRates_ScraperError(t *testing.T) {
 
 	uc := NewRateUsecase(repo, scraper)
 
-	count, err := uc.ScrapeRates(context.Background())
+	scrapedRates, err := uc.ScrapeRates(context.Background())
 
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	if count != 0 {
-		t.Errorf("expected count 0, got %d", count)
+	if scrapedRates != nil {
+		t.Errorf("expected nil rates, got %v", scrapedRates)
 	}
 	if repo.savedRates != nil {
 		t.Error("expected SaveRates not to be called")
@@ -95,13 +95,13 @@ func TestScrapeRates_RepoError(t *testing.T) {
 
 	uc := NewRateUsecase(repo, scraper)
 
-	count, err := uc.ScrapeRates(context.Background())
+	scrapedRates, err := uc.ScrapeRates(context.Background())
 
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	if count != 0 {
-		t.Errorf("expected count 0, got %d", count)
+	if scrapedRates != nil {
+		t.Errorf("expected nil rates, got %v", scrapedRates)
 	}
 	if len(repo.savedRates) != 1 {
 		t.Errorf("expected SaveRates to be called with 1 rate, got %d", len(repo.savedRates))
