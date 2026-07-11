@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/ivanosquis10/api-rates-venezuela/internal/httpx"
+	"github.com/ivanosquis10/api-rates-venezuela/internal/http/httpx"
 )
 
 // statusRecorder wraps http.ResponseWriter to capture the status code.

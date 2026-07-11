@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	chimw "github.com/go-chi/chi/v5/middleware"
 	"github.com/ivanosquis10/api-rates-venezuela/internal/apierrors"
 	"github.com/ivanosquis10/api-rates-venezuela/internal/presenter"
 	"golang.org/x/time/rate"
@@ -87,9 +88,13 @@ func (rl *rateLimiter) prune() {
 
 func (rl *rateLimiter) Handler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ip, _, err := net.SplitHostPort(r.RemoteAddr)
-		if err != nil {
-			ip = r.RemoteAddr
+		ip := chimw.GetClientIP(r.Context())
+		if ip == "" {
+			var err error
+			ip, _, err = net.SplitHostPort(r.RemoteAddr)
+			if err != nil {
+				ip = r.RemoteAddr
+			}
 		}
 
 		rl.mu.Lock()

@@ -7,7 +7,7 @@ import (
 
 	"github.com/ivanosquis10/api-rates-venezuela/internal/apierrors"
 	"github.com/ivanosquis10/api-rates-venezuela/internal/domain"
-	"github.com/ivanosquis10/api-rates-venezuela/internal/httpx"
+	"github.com/ivanosquis10/api-rates-venezuela/internal/http/httpx"
 )
 
 type ResponseEnvelope struct {
