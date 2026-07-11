@@ -33,3 +33,7 @@ air.log
 *.db
 *.db-journal
 *.db-wal
+sdd/
+cov
+coverage
+

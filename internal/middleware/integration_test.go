@@ -28,7 +28,7 @@ func TestMiddleware_ExecutionOrder(t *testing.T) {
 	defer cancel()
 
 	apiKey := "integration-test-key"
-	rateLimitMw := RateLimit(ctx, 1) // 1 req/min limit, burst = 1
+	rateLimitMw := NewRateLimiter(ctx, 1).Handler // 1 req/min limit, burst = 1
 	authMw := Auth(apiKey)
 
 	finalHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

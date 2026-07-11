@@ -10,6 +10,7 @@ import (
 	"github.com/ivanosquis10/api-rates-venezuela/internal/domain"
 	"github.com/ivanosquis10/api-rates-venezuela/internal/handler"
 	"github.com/ivanosquis10/api-rates-venezuela/internal/http/router"
+	"github.com/ivanosquis10/api-rates-venezuela/internal/middleware"
 )
 
 type mockUsecase struct {
@@ -49,10 +50,14 @@ func TestRouter_New(t *testing.T) {
 		Port:       8080,
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	rl := middleware.NewRateLimiter(ctx, cfg.RateLimit)
+
 	deps := router.Deps{
-		Handler: h,
-		Config:  cfg,
-		Context: context.Background(),
+		Handler:     h,
+		Config:      cfg,
+		RateLimiter: rl,
 	}
 
 	r := router.New(deps)
@@ -81,10 +86,14 @@ func TestRouter_Middleware_Auth(t *testing.T) {
 		Port:       8080,
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	rl := middleware.NewRateLimiter(ctx, cfg.RateLimit)
+
 	deps := router.Deps{
-		Handler: h,
-		Config:  cfg,
-		Context: context.Background(),
+		Handler:     h,
+		Config:      cfg,
+		RateLimiter: rl,
 	}
 
 	r := router.New(deps)

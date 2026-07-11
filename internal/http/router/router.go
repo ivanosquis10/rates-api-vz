@@ -1,7 +1,6 @@
 package router
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -13,9 +12,9 @@ import (
 
 // Deps holds router dependencies
 type Deps struct {
-	Handler *handler.Handler
-	Config  *config.Config
-	Context context.Context
+	Handler     *handler.Handler
+	Config      *config.Config
+	RateLimiter *middleware.RateLimiter
 }
 
 // New constructs the decoupled chi router
@@ -29,7 +28,7 @@ func New(deps Deps) http.Handler {
 	// Custom middleware
 	r.Use(middleware.Recovery)
 	r.Use(middleware.Logging)
-	r.Use(middleware.RateLimit(deps.Context, deps.Config.RateLimit))
+	r.Use(deps.RateLimiter.Handler)
 	r.Use(middleware.Auth(deps.Config.APIKey))
 
 	// Routes
