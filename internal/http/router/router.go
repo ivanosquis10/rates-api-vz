@@ -35,7 +35,7 @@ func New(deps Deps) http.Handler {
 
 	// Custom NotFound handler
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
-		presenter.Error(w, r, apierrors.New(apierrors.NOT_FOUND, "endpoint not found"))
+		presenter.Error(w, r, apierrors.New(apierrors.NOT_FOUND, "requested endpoint does not exist"))
 	})
 
 	// Routes

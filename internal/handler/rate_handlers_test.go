@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	chimw "github.com/go-chi/chi/v5/middleware"
 
 	"github.com/ivanosquis10/api-rates-venezuela/internal/domain"
 	"github.com/ivanosquis10/api-rates-venezuela/internal/middleware"
@@ -212,9 +213,9 @@ func TestGetHistory_InvalidLimit(t *testing.T) {
 
 	bodyBytes := w.Body.Bytes()
 	var body struct {
-		Success   bool    `json:"success"`
-		Code      *string `json:"code"`
-		Error     *string `json:"error"`
+		Success bool    `json:"success"`
+		Code    *string `json:"code"`
+		Error   *string `json:"error"`
 	}
 	if err := json.Unmarshal(bodyBytes, &body); err != nil {
 		t.Fatalf("failed to decode: %v", err)
@@ -297,9 +298,9 @@ func TestTriggerScrape_Error(t *testing.T) {
 
 	bodyBytes := w.Body.Bytes()
 	var body struct {
-		Success   bool    `json:"success"`
-		Code      *string `json:"code"`
-		Error     *string `json:"error"`
+		Success bool    `json:"success"`
+		Code    *string `json:"code"`
+		Error   *string `json:"error"`
 	}
 	if err := json.Unmarshal(bodyBytes, &body); err != nil {
 		t.Fatalf("failed to decode: %v", err)
@@ -330,6 +331,7 @@ func TestTriggerScrape_Error(t *testing.T) {
 func newTestRouter(mock Usecaser) *chi.Mux {
 	h := NewHandlerFromUsecaser(mock)
 	r := chi.NewRouter()
+	r.Use(chimw.RequestID)
 	r.Use(middleware.Recovery)
 	r.Get("/rates", h.GetRates)
 	r.Get("/rates/history", h.GetHistory)
@@ -357,6 +359,9 @@ func TestVerification_PanicRecoveryReturns500(t *testing.T) {
 	if w.Code != http.StatusInternalServerError {
 		t.Fatalf("expected 500 after panic, got %d", w.Code)
 	}
+	if w.Header().Get("X-Request-ID") == "" {
+		t.Error("expected X-Request-ID response header to be set, but it was empty")
+	}
 
 	// Verify server is still alive by sending a second request.
 	req2 := httptest.NewRequest(http.MethodGet, "/rates", nil)
@@ -365,6 +370,9 @@ func TestVerification_PanicRecoveryReturns500(t *testing.T) {
 
 	if w2.Code != http.StatusInternalServerError {
 		t.Fatalf("expected server to survive panic and return 500, got %d", w2.Code)
+	}
+	if w2.Header().Get("X-Request-ID") == "" {
+		t.Error("expected X-Request-ID response header to be set, but it was empty")
 	}
 }
 
@@ -386,6 +394,9 @@ func TestVerification_500ResponsesSanitized(t *testing.T) {
 	if w.Code != http.StatusInternalServerError {
 		t.Fatalf("expected 500, got %d", w.Code)
 	}
+	if w.Header().Get("X-Request-ID") == "" {
+		t.Error("expected X-Request-ID response header to be set, but it was empty")
+	}
 
 	body := w.Body.String()
 	// Must NOT leak internal details.
@@ -404,11 +415,10 @@ func TestVerification_500ResponsesSanitized(t *testing.T) {
 // 4.4 — All responses use correct ResponseEnvelope.
 func TestVerification_ResponseEnvelopeConsistency(t *testing.T) {
 	type verificationEnvelope struct {
-		Success   bool    `json:"success"`
-		Data      any     `json:"data"`
-		Code      *string `json:"code"`
-		Error     *string `json:"error"`
-		RequestID string  `json:"request_id"`
+		Success bool    `json:"success"`
+		Data    any     `json:"data"`
+		Code    *string `json:"code"`
+		Error   *string `json:"error"`
 	}
 
 	tests := []struct {
@@ -477,6 +487,18 @@ func TestVerification_ResponseEnvelopeConsistency(t *testing.T) {
 				t.Errorf("expected success=%v, got %v", tt.wantSuccess, env.Success)
 			}
 
+			if w.Header().Get("X-Request-ID") == "" {
+				t.Error("expected X-Request-ID response header to be set, but it was empty")
+			}
+
+			var raw map[string]any
+			if err := json.Unmarshal(bodyBytes, &raw); err != nil {
+				t.Fatalf("failed to unmarshal raw response: %v", err)
+			}
+			if _, exists := raw["request_id"]; exists {
+				t.Error("expected 'request_id' key to be omitted from JSON body")
+			}
+
 			if tt.wantSuccess {
 				if env.Data == nil {
 					t.Error("expected data field to be populated, got nil")
@@ -496,10 +518,6 @@ func TestVerification_ResponseEnvelopeConsistency(t *testing.T) {
 				}
 
 				// Assert absence of data on error
-				var raw map[string]any
-				if err := json.Unmarshal(bodyBytes, &raw); err != nil {
-					t.Fatalf("failed to unmarshal raw response: %v", err)
-				}
 				if _, exists := raw["data"]; exists {
 					t.Error("expected 'data' key to be omitted on error")
 				}

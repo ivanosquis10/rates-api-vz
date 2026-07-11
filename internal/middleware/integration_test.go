@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	chimw "github.com/go-chi/chi/v5/middleware"
 )
 
 func TestMiddleware_ExecutionOrder(t *testing.T) {
@@ -17,11 +19,10 @@ func TestMiddleware_ExecutionOrder(t *testing.T) {
 	// - A request from a fresh IP will pass RateLimit and fail Auth with 401.
 
 	type responseEnvelope struct {
-		Success   bool    `json:"success"`
-		Data      any     `json:"data"`
-		Code      *string `json:"code"`
-		Error     *string `json:"error"`
-		RequestID string  `json:"request_id"`
+		Success bool    `json:"success"`
+		Data    any     `json:"data"`
+		Code    *string `json:"code"`
+		Error   *string `json:"error"`
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -36,8 +37,8 @@ func TestMiddleware_ExecutionOrder(t *testing.T) {
 		_, _ = w.Write([]byte("ok"))
 	})
 
-	// Wrap in sequence: recovery -> logging -> rateLimit -> auth
-	handler := Recovery(Logging(rateLimitMw(authMw(finalHandler))))
+	// Wrap in sequence: requestID -> recovery -> logging -> rateLimit -> auth
+	handler := chimw.RequestID(Recovery(Logging(rateLimitMw(authMw(finalHandler)))))
 
 	// Scenario A: Valid request (passes all middlewares)
 	{
@@ -63,6 +64,10 @@ func TestMiddleware_ExecutionOrder(t *testing.T) {
 			t.Errorf("Expected 429 (rate limit before auth check), got %d", w.Code)
 		}
 
+		if w.Header().Get("X-Request-ID") == "" {
+			t.Error("expected X-Request-ID response header to be set, but it was empty")
+		}
+
 		var resp responseEnvelope
 		if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 			t.Fatalf("failed to decode JSON: %v", err)
@@ -81,6 +86,9 @@ func TestMiddleware_ExecutionOrder(t *testing.T) {
 		if _, exists := raw["data"]; exists {
 			t.Error("expected 'data' key to be omitted on error")
 		}
+		if _, exists := raw["request_id"]; exists {
+			t.Error("expected 'request_id' key to be omitted from JSON body")
+		}
 	}
 
 	// Scenario C: Auth failure for a new IP (not rate limited)
@@ -93,6 +101,10 @@ func TestMiddleware_ExecutionOrder(t *testing.T) {
 		handler.ServeHTTP(w, req)
 		if w.Code != http.StatusUnauthorized {
 			t.Errorf("Expected 401 (auth failure after rate limit pass), got %d", w.Code)
+		}
+
+		if w.Header().Get("X-Request-ID") == "" {
+			t.Error("expected X-Request-ID response header to be set, but it was empty")
 		}
 
 		var resp responseEnvelope
@@ -112,6 +124,9 @@ func TestMiddleware_ExecutionOrder(t *testing.T) {
 		}
 		if _, exists := raw["data"]; exists {
 			t.Error("expected 'data' key to be omitted on error")
+		}
+		if _, exists := raw["request_id"]; exists {
+			t.Error("expected 'request_id' key to be omitted from JSON body")
 		}
 	}
 }

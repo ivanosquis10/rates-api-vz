@@ -1,9 +1,6 @@
-# Presenter Spec
+# Delta for presenter
 
-## Purpose
-Enveloping responses and mapping domain errors.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Enveloping and Mapping
 

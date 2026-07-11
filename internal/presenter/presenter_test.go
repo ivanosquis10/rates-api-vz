@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	chimw "github.com/go-chi/chi/v5/middleware"
 	"github.com/ivanosquis10/api-rates-venezuela/internal/apierrors"
 )
 
@@ -70,11 +71,17 @@ func TestErrorPresenter(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			w := httptest.NewRecorder()
 			r := httptest.NewRequest(http.MethodGet, "/test", nil)
+			ctx := context.WithValue(r.Context(), chimw.RequestIDKey, "test-req-id")
+			r = r.WithContext(ctx)
 
 			Error(w, r, tt.inputErr)
 
 			if w.Code != tt.expectedStatus {
 				t.Errorf("expected status %d, got %d", tt.expectedStatus, w.Code)
+			}
+
+			if got := w.Header().Get("X-Request-ID"); got != "test-req-id" {
+				t.Errorf("expected X-Request-ID header %q, got %q", "test-req-id", got)
 			}
 
 			var resp ResponseEnvelope
@@ -109,6 +116,9 @@ func TestErrorPresenter(t *testing.T) {
 			if _, exists := raw["data"]; exists {
 				t.Error("expected 'data' key to be omitted on error")
 			}
+			if _, exists := raw["request_id"]; exists {
+				t.Error("expected 'request_id' key to be omitted from JSON body")
+			}
 		})
 	}
 }
@@ -121,3 +131,49 @@ type mockNetError struct {
 func (e *mockNetError) Error() string   { return e.err.Error() }
 func (e *mockNetError) Timeout() bool   { return e.timeout }
 func (e *mockNetError) Temporary() bool { return false }
+
+func TestOKAndCreatedPresenter(t *testing.T) {
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodGet, "/test", nil)
+	ctx := context.WithValue(r.Context(), chimw.RequestIDKey, "test-req-id-ok")
+	r = r.WithContext(ctx)
+
+	OK(w, r, "test-data")
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d", w.Code)
+	}
+	if got := w.Header().Get("X-Request-ID"); got != "test-req-id-ok" {
+		t.Errorf("expected X-Request-ID header %q, got %q", "test-req-id-ok", got)
+	}
+
+	var raw map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &raw); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
+	if _, exists := raw["request_id"]; exists {
+		t.Error("expected 'request_id' key to be omitted from JSON body")
+	}
+	if raw["data"] != "test-data" {
+		t.Errorf("expected data %q, got %v", "test-data", raw["data"])
+	}
+
+	// Test Created
+	w2 := httptest.NewRecorder()
+	Created(w2, r, "created-data")
+
+	if w2.Code != http.StatusCreated {
+		t.Errorf("expected status 201, got %d", w2.Code)
+	}
+	if got := w2.Header().Get("X-Request-ID"); got != "test-req-id-ok" {
+		t.Errorf("expected X-Request-ID header %q, got %q", "test-req-id-ok", got)
+	}
+
+	var raw2 map[string]any
+	if err := json.Unmarshal(w2.Body.Bytes(), &raw2); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
+	if _, exists := raw2["request_id"]; exists {
+		t.Error("expected 'request_id' key to be omitted from JSON body")
+	}
+}

@@ -14,11 +14,10 @@ import (
 )
 
 type ResponseEnvelope struct {
-	Success   bool             `json:"success"`
-	Data      any              `json:"data,omitempty"`
-	Code      *apierrors.Code  `json:"code,omitempty"`
-	Error     *string          `json:"error,omitempty"`
-	RequestID string           `json:"request_id"`
+	Success bool            `json:"success"`
+	Data    any             `json:"data,omitempty"`
+	Code    *apierrors.Code `json:"code,omitempty"`
+	Error   *string         `json:"error,omitempty"`
 }
 
 func codePtr(c apierrors.Code) *apierrors.Code {
@@ -32,24 +31,24 @@ func stringPtr(s string) *string {
 // OK writes an http.StatusOK enveloped response.
 func OK(w http.ResponseWriter, r *http.Request, data any) {
 	reqID := httpx.GetRequestID(r.Context())
+	w.Header().Set("X-Request-ID", reqID)
 	httpx.WriteJSON(w, http.StatusOK, ResponseEnvelope{
-		Success:   true,
-		Data:      data,
-		Code:      nil,
-		Error:     nil,
-		RequestID: reqID,
+		Success: true,
+		Data:    data,
+		Code:    nil,
+		Error:   nil,
 	})
 }
 
 // Created writes an http.StatusCreated enveloped response.
 func Created(w http.ResponseWriter, r *http.Request, data any) {
 	reqID := httpx.GetRequestID(r.Context())
+	w.Header().Set("X-Request-ID", reqID)
 	httpx.WriteJSON(w, http.StatusCreated, ResponseEnvelope{
-		Success:   true,
-		Data:      data,
-		Code:      nil,
-		Error:     nil,
-		RequestID: reqID,
+		Success: true,
+		Data:    data,
+		Code:    nil,
+		Error:   nil,
 	})
 }
 
@@ -143,10 +142,10 @@ func Error(w http.ResponseWriter, r *http.Request, err error) {
 		message = "internal server error"
 	}
 
+	w.Header().Set("X-Request-ID", reqID)
 	httpx.WriteJSON(w, status, ResponseEnvelope{
-		Success:   false,
-		Code:      codePtr(code),
-		Error:     stringPtr(message),
-		RequestID: reqID,
+		Success: false,
+		Code:    codePtr(code),
+		Error:   stringPtr(message),
 	})
 }
