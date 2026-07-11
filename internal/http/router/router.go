@@ -38,11 +38,14 @@ func New(deps Deps) http.Handler {
 		presenter.Error(w, r, apierrors.New(apierrors.NOT_FOUND, "requested endpoint does not exist"))
 	})
 
-	// Routes
-	r.Get("/rates", deps.Handler.GetRates)
-	r.Get("/rates/history", deps.Handler.GetHistory)
-	r.Route("/admin", func(r chi.Router) {
-		r.Post("/scrape", deps.Handler.TriggerScrape)
+	// API v1 routes
+	r.Route("/api/v1", func(r chi.Router) {
+		r.Get("/health", deps.Handler.Health)
+		r.Get("/rates", deps.Handler.GetRates)
+		r.Get("/rates/history", deps.Handler.GetHistory)
+		r.Route("/admin", func(r chi.Router) {
+			r.Post("/scrape", deps.Handler.TriggerScrape)
+		})
 	})
 
 	return r
