@@ -2,6 +2,7 @@ package router_test
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -159,5 +160,62 @@ func TestRouter_Middleware_Auth(t *testing.T) {
 				t.Errorf("expected status %d, got %d", tt.expectedStatus, w.Code)
 			}
 		})
+	}
+}
+
+func TestRouter_NotFound(t *testing.T) {
+	mockUC := &mockUsecase{}
+	h := handler.NewHandlerFromUsecaser(mockUC)
+	cfg := &config.Config{
+		APIKey:     "secret-api-key",
+		RateLimit:  100,
+		ScrapeHour: 9,
+		Port:       8080,
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	rl := middleware.NewRateLimiter(ctx, cfg.RateLimit)
+
+	deps := router.Deps{
+		Handler:     h,
+		Config:      cfg,
+		RateLimiter: rl,
+	}
+
+	r := router.New(deps)
+
+	req, err := http.NewRequest(http.MethodGet, "/invalid-route", nil)
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+	req.Header.Set("X-API-Key", "secret-api-key")
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected status %d, got %d", http.StatusNotFound, w.Code)
+	}
+
+	var raw map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &raw); err != nil {
+		t.Fatalf("failed to decode JSON response: %v", err)
+	}
+
+	if raw["success"] != false {
+		t.Errorf("expected success to be false, got %v", raw["success"])
+	}
+	if raw["code"] != "NOT_FOUND" {
+		t.Errorf("expected code to be NOT_FOUND, got %v", raw["code"])
+	}
+	if raw["error"] != "endpoint not found" {
+		t.Errorf("expected error to be 'endpoint not found', got %v", raw["error"])
+	}
+	if _, exists := raw["request_id"]; !exists {
+		t.Error("expected request_id to be present")
+	}
+	if _, exists := raw["data"]; exists {
+		t.Error("expected 'data' to be absent")
 	}
 }

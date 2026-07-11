@@ -5,9 +5,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
+	"github.com/ivanosquis10/api-rates-venezuela/internal/apierrors"
 	"github.com/ivanosquis10/api-rates-venezuela/internal/config"
 	"github.com/ivanosquis10/api-rates-venezuela/internal/handler"
 	"github.com/ivanosquis10/api-rates-venezuela/internal/middleware"
+	"github.com/ivanosquis10/api-rates-venezuela/internal/presenter"
 )
 
 // Deps holds router dependencies
@@ -30,6 +32,11 @@ func New(deps Deps) http.Handler {
 	r.Use(middleware.Logging)
 	r.Use(deps.RateLimiter.Handler)
 	r.Use(middleware.Auth(deps.Config.APIKey))
+
+	// Custom NotFound handler
+	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
+		presenter.Error(w, r, apierrors.New(apierrors.NOT_FOUND, "endpoint not found"))
+	})
 
 	// Routes
 	r.Get("/rates", deps.Handler.GetRates)

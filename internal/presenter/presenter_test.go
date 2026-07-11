@@ -86,10 +86,10 @@ func TestErrorPresenter(t *testing.T) {
 				t.Error("expected success to be false")
 			}
 
-			if resp.ErrorCode == nil || string(*resp.ErrorCode) != tt.expectedCode {
+			if resp.Code == nil || string(*resp.Code) != tt.expectedCode {
 				gotCode := "nil"
-				if resp.ErrorCode != nil {
-					gotCode = string(*resp.ErrorCode)
+				if resp.Code != nil {
+					gotCode = string(*resp.Code)
 				}
 				t.Errorf("expected error code %q, got %q", tt.expectedCode, gotCode)
 			}
@@ -100,6 +100,14 @@ func TestErrorPresenter(t *testing.T) {
 					gotMsg = *resp.Error
 				}
 				t.Errorf("expected error message %q, got %q", tt.expectedMsg, gotMsg)
+			}
+
+			var raw map[string]any
+			if err := json.Unmarshal(w.Body.Bytes(), &raw); err != nil {
+				t.Fatalf("failed to unmarshal raw response: %v", err)
+			}
+			if _, exists := raw["data"]; exists {
+				t.Error("expected 'data' key to be omitted on error")
 			}
 		})
 	}

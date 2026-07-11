@@ -210,22 +210,31 @@ func TestGetHistory_InvalidLimit(t *testing.T) {
 		t.Fatalf("expected 400, got %d", w.Code)
 	}
 
+	bodyBytes := w.Body.Bytes()
 	var body struct {
 		Success   bool    `json:"success"`
-		ErrorCode *string `json:"error_code"`
+		Code      *string `json:"code"`
 		Error     *string `json:"error"`
 	}
-	if err := json.NewDecoder(w.Body).Decode(&body); err != nil {
+	if err := json.Unmarshal(bodyBytes, &body); err != nil {
 		t.Fatalf("failed to decode: %v", err)
 	}
 	if body.Success {
 		t.Error("expected success to be false")
 	}
-	if body.ErrorCode == nil || *body.ErrorCode != "BAD_REQUEST" {
-		t.Errorf("expected BAD_REQUEST, got %v", body.ErrorCode)
+	if body.Code == nil || *body.Code != "BAD_REQUEST" {
+		t.Errorf("expected BAD_REQUEST, got %v", body.Code)
 	}
 	if body.Error == nil || *body.Error != "invalid limit parameter" {
 		t.Errorf("expected 'invalid limit parameter', got %v", body.Error)
+	}
+
+	var raw map[string]any
+	if err := json.Unmarshal(bodyBytes, &raw); err != nil {
+		t.Fatalf("failed to unmarshal raw response: %v", err)
+	}
+	if _, exists := raw["data"]; exists {
+		t.Error("expected 'data' key to be omitted on error")
 	}
 }
 
@@ -286,22 +295,31 @@ func TestTriggerScrape_Error(t *testing.T) {
 		t.Fatalf("expected 500, got %d", w.Code)
 	}
 
+	bodyBytes := w.Body.Bytes()
 	var body struct {
 		Success   bool    `json:"success"`
-		ErrorCode *string `json:"error_code"`
+		Code      *string `json:"code"`
 		Error     *string `json:"error"`
 	}
-	if err := json.NewDecoder(w.Body).Decode(&body); err != nil {
+	if err := json.Unmarshal(bodyBytes, &body); err != nil {
 		t.Fatalf("failed to decode: %v", err)
 	}
 	if body.Success {
 		t.Error("expected success to be false")
 	}
-	if body.ErrorCode == nil || *body.ErrorCode != "INTERNAL_ERROR" {
-		t.Errorf("expected INTERNAL_ERROR, got %v", body.ErrorCode)
+	if body.Code == nil || *body.Code != "INTERNAL_ERROR" {
+		t.Errorf("expected INTERNAL_ERROR, got %v", body.Code)
 	}
 	if body.Error == nil || *body.Error != "internal server error" {
 		t.Errorf("expected 'internal server error', got %v", body.Error)
+	}
+
+	var raw map[string]any
+	if err := json.Unmarshal(bodyBytes, &raw); err != nil {
+		t.Fatalf("failed to unmarshal raw response: %v", err)
+	}
+	if _, exists := raw["data"]; exists {
+		t.Error("expected 'data' key to be omitted on error")
 	}
 }
 
@@ -388,7 +406,7 @@ func TestVerification_ResponseEnvelopeConsistency(t *testing.T) {
 	type verificationEnvelope struct {
 		Success   bool    `json:"success"`
 		Data      any     `json:"data"`
-		ErrorCode *string `json:"error_code"`
+		Code      *string `json:"code"`
 		Error     *string `json:"error"`
 		RequestID string  `json:"request_id"`
 	}
@@ -449,8 +467,9 @@ func TestVerification_ResponseEnvelopeConsistency(t *testing.T) {
 			w := httptest.NewRecorder()
 			router.ServeHTTP(w, req)
 
+			bodyBytes := w.Body.Bytes()
 			var env verificationEnvelope
-			if err := json.NewDecoder(w.Body).Decode(&env); err != nil {
+			if err := json.Unmarshal(bodyBytes, &env); err != nil {
 				t.Fatalf("failed to decode response: %v", err)
 			}
 
@@ -462,18 +481,27 @@ func TestVerification_ResponseEnvelopeConsistency(t *testing.T) {
 				if env.Data == nil {
 					t.Error("expected data field to be populated, got nil")
 				}
-				if env.ErrorCode != nil {
-					t.Errorf("expected error_code to be nil, got %v", env.ErrorCode)
+				if env.Code != nil {
+					t.Errorf("expected code to be nil, got %v", env.Code)
 				}
 				if env.Error != nil {
 					t.Errorf("expected error to be nil, got %v", env.Error)
 				}
 			} else {
-				if env.ErrorCode == nil {
-					t.Error("expected error_code to be populated, got nil")
+				if env.Code == nil {
+					t.Error("expected code to be populated, got nil")
 				}
 				if env.Error == nil {
 					t.Error("expected error to be populated, got nil")
+				}
+
+				// Assert absence of data on error
+				var raw map[string]any
+				if err := json.Unmarshal(bodyBytes, &raw); err != nil {
+					t.Fatalf("failed to unmarshal raw response: %v", err)
+				}
+				if _, exists := raw["data"]; exists {
+					t.Error("expected 'data' key to be omitted on error")
 				}
 			}
 		})

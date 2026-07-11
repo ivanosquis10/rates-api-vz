@@ -1,7 +1,4 @@
-# Presenter Spec
-
-## Purpose
-Enveloping responses and mapping domain errors.
+# Delta Spec: Presenter
 
 ## Requirements
 

@@ -15,9 +15,9 @@ import (
 
 type ResponseEnvelope struct {
 	Success   bool             `json:"success"`
-	Data      any              `json:"data"`
-	ErrorCode *apierrors.Code  `json:"error_code"`
-	Error     *string          `json:"error"`
+	Data      any              `json:"data,omitempty"`
+	Code      *apierrors.Code  `json:"code,omitempty"`
+	Error     *string          `json:"error,omitempty"`
 	RequestID string           `json:"request_id"`
 }
 
@@ -35,7 +35,7 @@ func OK(w http.ResponseWriter, r *http.Request, data any) {
 	httpx.WriteJSON(w, http.StatusOK, ResponseEnvelope{
 		Success:   true,
 		Data:      data,
-		ErrorCode: nil,
+		Code:      nil,
 		Error:     nil,
 		RequestID: reqID,
 	})
@@ -47,7 +47,7 @@ func Created(w http.ResponseWriter, r *http.Request, data any) {
 	httpx.WriteJSON(w, http.StatusCreated, ResponseEnvelope{
 		Success:   true,
 		Data:      data,
-		ErrorCode: nil,
+		Code:      nil,
 		Error:     nil,
 		RequestID: reqID,
 	})
@@ -145,7 +145,7 @@ func Error(w http.ResponseWriter, r *http.Request, err error) {
 
 	httpx.WriteJSON(w, status, ResponseEnvelope{
 		Success:   false,
-		ErrorCode: codePtr(code),
+		Code:      codePtr(code),
 		Error:     stringPtr(message),
 		RequestID: reqID,
 	})

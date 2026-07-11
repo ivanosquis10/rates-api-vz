@@ -10,7 +10,7 @@ import (
 type responseEnvelope struct {
 	Success   bool    `json:"success"`
 	Data      any     `json:"data"`
-	ErrorCode *string `json:"error_code"`
+	Code      *string `json:"code"`
 	Error     *string `json:"error"`
 	RequestID string  `json:"request_id"`
 }
@@ -73,11 +73,19 @@ func TestAuth_MissingKey(t *testing.T) {
 	if resp.Success {
 		t.Errorf("expected success to be false, got true")
 	}
-	if resp.ErrorCode == nil || *resp.ErrorCode != "UNAUTHORIZED" {
-		t.Errorf("expected error_code UNAUTHORIZED, got %v", resp.ErrorCode)
+	if resp.Code == nil || *resp.Code != "UNAUTHORIZED" {
+		t.Errorf("expected code UNAUTHORIZED, got %v", resp.Code)
 	}
 	if resp.Error == nil || *resp.Error != "unauthorized" {
 		t.Errorf("expected error 'unauthorized', got %v", resp.Error)
+	}
+
+	var raw map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &raw); err != nil {
+		t.Fatalf("failed to unmarshal raw response: %v", err)
+	}
+	if _, exists := raw["data"]; exists {
+		t.Error("expected 'data' key to be omitted on error")
 	}
 }
 
@@ -114,10 +122,18 @@ func TestAuth_InvalidKey(t *testing.T) {
 	if resp.Success {
 		t.Errorf("expected success to be false, got true")
 	}
-	if resp.ErrorCode == nil || *resp.ErrorCode != "UNAUTHORIZED" {
-		t.Errorf("expected error_code UNAUTHORIZED, got %v", resp.ErrorCode)
+	if resp.Code == nil || *resp.Code != "UNAUTHORIZED" {
+		t.Errorf("expected code UNAUTHORIZED, got %v", resp.Code)
 	}
 	if resp.Error == nil || *resp.Error != "unauthorized" {
 		t.Errorf("expected error 'unauthorized', got %v", resp.Error)
+	}
+
+	var raw map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &raw); err != nil {
+		t.Fatalf("failed to unmarshal raw response: %v", err)
+	}
+	if _, exists := raw["data"]; exists {
+		t.Error("expected 'data' key to be omitted on error")
 	}
 }
