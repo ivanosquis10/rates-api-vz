@@ -25,21 +25,14 @@ func loadFixture(t *testing.T, name string) string {
 
 func TestScrapeSuccess(t *testing.T) {
 	homepageHTML := loadFixture(t, "bcv-homepage.html")
-	statsHTML := loadFixture(t, "bcv-stats.html")
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Write([]byte(homepageHTML))
-	})
-	mux.HandleFunc("/estadisticas/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write([]byte(statsHTML))
-	})
-	server := httptest.NewServer(mux)
+	}))
 	defer server.Close()
 
-	scraper := NewBCVScraper(server.Client(), server.URL+"/", server.URL+"/estadisticas/tipo-cambio-de-referencia-smc")
+	scraper := NewBCVScraper(server.Client(), server.URL+"/")
 
 	rates, err := scraper.Scrape(context.Background())
 	if err != nil {
@@ -114,7 +107,7 @@ func TestScrapeMissingUSD(t *testing.T) {
 	}))
 	defer server.Close()
 
-	scraper := NewBCVScraper(server.Client(), server.URL+"/", server.URL+"/stats")
+	scraper := NewBCVScraper(server.Client(), server.URL+"/")
 
 	_, err := scraper.Scrape(context.Background())
 	if err == nil {
@@ -137,7 +130,7 @@ func TestScrapeNonNumericValue(t *testing.T) {
 	}))
 	defer server.Close()
 
-	scraper := NewBCVScraper(server.Client(), server.URL+"/", server.URL+"/stats")
+	scraper := NewBCVScraper(server.Client(), server.URL+"/")
 
 	_, err := scraper.Scrape(context.Background())
 	if err == nil {
@@ -152,25 +145,17 @@ func TestScrapeEmptyBankTable(t *testing.T) {
 	homepageHTML := `<html><body>
 		<div id="dolar"><span class="strong-tb">36.50</span></div>
 		<div id="euro"><span class="strong-tb">38.20</span></div>
-	</body></html>`
-	statsHTML := `<html><body>
 		<span class="date-display-single" content="2026-07-10T00:00:00-04:00">10 julio 2026</span>
 		<table class="views-table"><tbody></tbody></table>
 	</body></html>`
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Write([]byte(homepageHTML))
-	})
-	mux.HandleFunc("/estadisticas/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write([]byte(statsHTML))
-	})
-	server := httptest.NewServer(mux)
+	}))
 	defer server.Close()
 
-	scraper := NewBCVScraper(server.Client(), server.URL+"/", server.URL+"/estadisticas/tipo-cambio-de-referencia-smc")
+	scraper := NewBCVScraper(server.Client(), server.URL+"/")
 
 	rates, err := scraper.Scrape(context.Background())
 	if err != nil {
@@ -197,7 +182,7 @@ func TestScrapeMalformedHTML(t *testing.T) {
 	}))
 	defer server.Close()
 
-	scraper := NewBCVScraper(server.Client(), server.URL+"/", server.URL+"/stats")
+	scraper := NewBCVScraper(server.Client(), server.URL+"/")
 
 	// goquery is lenient with malformed HTML, so this tests that the scraper
 	// doesn't panic and handles the parse gracefully
@@ -219,7 +204,7 @@ func TestScrapeHTTPError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	scraper := NewBCVScraper(server.Client(), server.URL+"/", server.URL+"/stats")
+	scraper := NewBCVScraper(server.Client(), server.URL+"/")
 
 	_, err := scraper.Scrape(context.Background())
 	if err == nil {
@@ -237,7 +222,7 @@ func TestScrapeContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancel immediately
 
-	scraper := NewBCVScraper(server.Client(), server.URL+"/", server.URL+"/stats")
+	scraper := NewBCVScraper(server.Client(), server.URL+"/")
 
 	_, err := scraper.Scrape(ctx)
 	if err == nil {

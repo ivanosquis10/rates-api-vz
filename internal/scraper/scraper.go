@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/ivanosquis10/api-rates-venezuela/internal/apierrors"
 	"github.com/ivanosquis10/api-rates-venezuela/internal/domain"
 )
 
@@ -21,7 +22,6 @@ type Scraper interface {
 type BCVScraper struct {
 	client      *http.Client
 	homepageURL string
-	statsURL    string
 }
 
 // Selector constants — isolated for easy update when BCV changes HTML.
@@ -33,46 +33,39 @@ const (
 	selDateAttr  = "content"
 )
 
-// NewBCVScraper creates a new BCVScraper with the given HTTP client and URLs.
-func NewBCVScraper(client *http.Client, homepageURL, statsURL string) *BCVScraper {
+// NewBCVScraper creates a new BCVScraper with the given HTTP client and URL.
+func NewBCVScraper(client *http.Client, homepageURL string) *BCVScraper {
 	return &BCVScraper{
 		client:      client,
 		homepageURL: homepageURL,
-		statsURL:    statsURL,
 	}
 }
 
-// Scrape fetches BCV homepage and statistics page, parses exchange rates,
+// Scrape fetches BCV homepage, parses exchange rates,
 // and returns all discovered rates with a shared ScrapedAt timestamp.
 func (s *BCVScraper) Scrape(ctx context.Context) ([]domain.Rate, error) {
-	// Fetch homepage for reference rates
+	// Fetch homepage for references, date, and bank rates
 	homeDoc, err := s.fetchPage(ctx, s.homepageURL)
 	if err != nil {
-		return nil, fmt.Errorf("fetch reference page: %w", err)
+		return nil, apierrors.NewProviderError(fmt.Errorf("fetch page: %w", err))
 	}
 
 	// Parse reference rates (USD, EUR)
 	refRates, err := parseReferenceRates(homeDoc)
 	if err != nil {
-		return nil, fmt.Errorf("parse reference rates: %w", err)
-	}
-
-	// Fetch statistics page for bank rates and date
-	statsDoc, err := s.fetchPage(ctx, s.statsURL)
-	if err != nil {
-		return nil, fmt.Errorf("fetch statistics page: %w", err)
+		return nil, apierrors.NewProviderError(fmt.Errorf("parse reference rates: %w", err))
 	}
 
 	// Parse date
-	scrapedAt, err := parseDate(statsDoc)
+	scrapedAt, err := parseDate(homeDoc)
 	if err != nil {
-		return nil, fmt.Errorf("parse date: %w", err)
+		return nil, apierrors.NewProviderError(fmt.Errorf("parse date: %w", err))
 	}
 
 	// Parse bank rates
-	bankRates, err := parseBankRates(statsDoc)
+	bankRates, err := parseBankRates(homeDoc)
 	if err != nil {
-		return nil, fmt.Errorf("parse bank rates: %w", err)
+		return nil, apierrors.NewProviderError(fmt.Errorf("parse bank rates: %w", err))
 	}
 
 	// Combine all rates and set ScrapedAt
@@ -93,6 +86,10 @@ func (s *BCVScraper) fetchPage(ctx context.Context, url string) (*goquery.Docume
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
+
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8")
+	req.Header.Set("Accept-Language", "es-ES,es;q=0.9,en;q=0.8")
 
 	resp, err := s.client.Do(req)
 	if err != nil {
