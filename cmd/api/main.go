@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 	_ "time/tzdata"
 
 	"github.com/ivanosquis10/api-rates-venezuela/internal/config"
@@ -43,12 +44,19 @@ func main() {
 	}
 	defer db.Close()
 
+	// Setup custom client with timeout settings
+	customTransport := http.DefaultTransport.(*http.Transport).Clone()
+	customTransport.TLSHandshakeTimeout = 10 * time.Second
+	client := &http.Client{
+		Transport: customTransport,
+		Timeout:   15 * time.Second,
+	}
+
 	// Wire dependencies: store → scraper → usecase → handler
 	repo := store.NewStore(db)
 	bcvScraper := scraper.NewBCVScraper(
-		http.DefaultClient,
+		client,
 		"https://www.bcv.org.ve",
-		"https://www.bcv.org.ve/estadisticas",
 	)
 	uc := usecase.NewRateUsecase(repo, bcvScraper)
 	h := handler.NewHandler(uc)

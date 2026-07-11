@@ -1,9 +1,12 @@
 package presenter
 
 import (
+	"context"
 	"errors"
 	"log/slog"
+	"net"
 	"net/http"
+	"strings"
 
 	"github.com/ivanosquis10/api-rates-venezuela/internal/apierrors"
 	"github.com/ivanosquis10/api-rates-venezuela/internal/domain"
@@ -98,6 +101,38 @@ func Error(w http.ResponseWriter, r *http.Request, err error) {
 			status = http.StatusNotFound
 		case apierrors.BAD_REQUEST:
 			status = http.StatusBadRequest
+		case apierrors.PROVIDER_ERROR:
+			isTimeout := false
+			if apiErr.Err != nil {
+				var netErr net.Error
+				if errors.As(apiErr.Err, &netErr) && netErr.Timeout() {
+					isTimeout = true
+				} else if errors.Is(apiErr.Err, context.DeadlineExceeded) {
+					isTimeout = true
+				}
+			}
+			if !isTimeout {
+				lowerMsg := strings.ToLower(apiErr.Message)
+				if strings.Contains(lowerMsg, "timeout") ||
+					strings.Contains(lowerMsg, "deadline") ||
+					strings.Contains(lowerMsg, "handshake") {
+					isTimeout = true
+				}
+				if apiErr.Err != nil {
+					lowerErr := strings.ToLower(apiErr.Err.Error())
+					if strings.Contains(lowerErr, "timeout") ||
+						strings.Contains(lowerErr, "deadline") ||
+						strings.Contains(lowerErr, "handshake") {
+						isTimeout = true
+					}
+				}
+			}
+
+			if isTimeout {
+				status = http.StatusGatewayTimeout
+			} else {
+				status = http.StatusBadGateway
+			}
 		default:
 			status = http.StatusInternalServerError
 		}
