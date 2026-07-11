@@ -26,6 +26,7 @@ func New(deps Deps) http.Handler {
 	// Chi's built-in middleware
 	r.Use(chimw.ClientIPFromRemoteAddr)
 	r.Use(chimw.RequestID)
+	r.Use(middleware.CORS)
 
 	// Custom middleware
 	r.Use(middleware.Recovery)
