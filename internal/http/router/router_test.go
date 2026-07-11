@@ -109,35 +109,35 @@ func TestRouter_Middleware_Auth(t *testing.T) {
 		{
 			name:           "Rates request without API Key",
 			method:         "GET",
-			url:            "/rates",
+			url:            "/api/v1/rates",
 			apiKey:         "",
 			expectedStatus: http.StatusUnauthorized,
 		},
 		{
 			name:           "Rates request with invalid API Key",
 			method:         "GET",
-			url:            "/rates",
+			url:            "/api/v1/rates",
 			apiKey:         "invalid-key",
 			expectedStatus: http.StatusUnauthorized,
 		},
 		{
 			name:           "Rates request with valid API Key",
 			method:         "GET",
-			url:            "/rates",
+			url:            "/api/v1/rates",
 			apiKey:         "secret-api-key",
 			expectedStatus: http.StatusOK,
 		},
 		{
 			name:           "History request with valid API Key",
 			method:         "GET",
-			url:            "/rates/history",
+			url:            "/api/v1/rates/history",
 			apiKey:         "secret-api-key",
 			expectedStatus: http.StatusOK,
 		},
 		{
 			name:           "Scrape request with valid API Key",
 			method:         "POST",
-			url:            "/admin/scrape",
+			url:            "/api/v1/admin/scrape",
 			apiKey:         "secret-api-key",
 			expectedStatus: http.StatusOK,
 		},
@@ -219,8 +219,8 @@ func TestRouter_NotFound(t *testing.T) {
 	if raw["code"] != "NOT_FOUND" {
 		t.Errorf("expected code to be NOT_FOUND, got %v", raw["code"])
 	}
-	if raw["error"] != "endpoint not found" {
-		t.Errorf("expected error to be 'endpoint not found', got %v", raw["error"])
+	if raw["error"] != "requested endpoint does not exist" {
+		t.Errorf("expected error to be 'requested endpoint does not exist', got %v", raw["error"])
 	}
 	if w.Header().Get("X-Request-ID") == "" {
 		t.Error("expected X-Request-ID response header to be set, but it was empty")
