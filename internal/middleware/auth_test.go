@@ -7,11 +7,12 @@ import (
 	"testing"
 )
 
-type errorResponse struct {
-	Error struct {
-		Code    string `json:"code"`
-		Message string `json:"message"`
-	} `json:"error"`
+type responseEnvelope struct {
+	Success   bool    `json:"success"`
+	Data      any     `json:"data"`
+	ErrorCode *string `json:"error_code"`
+	Error     *string `json:"error"`
+	RequestID string  `json:"request_id"`
 }
 
 func TestAuth_ValidKey(t *testing.T) {
@@ -64,13 +65,19 @@ func TestAuth_MissingKey(t *testing.T) {
 		t.Error("expected next handler NOT to be called")
 	}
 
-	var resp errorResponse
+	var resp responseEnvelope
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("failed to decode JSON response: %v", err)
 	}
 
-	if resp.Error.Code != "UNAUTHORIZED" || resp.Error.Message != "unauthorized" {
-		t.Errorf("unexpected error payload: %+v", resp.Error)
+	if resp.Success {
+		t.Errorf("expected success to be false, got true")
+	}
+	if resp.ErrorCode == nil || *resp.ErrorCode != "UNAUTHORIZED" {
+		t.Errorf("expected error_code UNAUTHORIZED, got %v", resp.ErrorCode)
+	}
+	if resp.Error == nil || *resp.Error != "unauthorized" {
+		t.Errorf("expected error 'unauthorized', got %v", resp.Error)
 	}
 }
 
@@ -99,12 +106,18 @@ func TestAuth_InvalidKey(t *testing.T) {
 		t.Error("expected next handler NOT to be called")
 	}
 
-	var resp errorResponse
+	var resp responseEnvelope
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("failed to decode JSON response: %v", err)
 	}
 
-	if resp.Error.Code != "UNAUTHORIZED" || resp.Error.Message != "unauthorized" {
-		t.Errorf("unexpected error payload: %+v", resp.Error)
+	if resp.Success {
+		t.Errorf("expected success to be false, got true")
+	}
+	if resp.ErrorCode == nil || *resp.ErrorCode != "UNAUTHORIZED" {
+		t.Errorf("expected error_code UNAUTHORIZED, got %v", resp.ErrorCode)
+	}
+	if resp.Error == nil || *resp.Error != "unauthorized" {
+		t.Errorf("expected error 'unauthorized', got %v", resp.Error)
 	}
 }

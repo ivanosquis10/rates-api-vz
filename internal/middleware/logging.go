@@ -4,6 +4,8 @@ import (
 	"log/slog"
 	"net/http"
 	"time"
+
+	"github.com/ivanosquis10/api-rates-venezuela/internal/httpx"
 )
 
 // statusRecorder wraps http.ResponseWriter to capture the status code.
@@ -30,6 +32,7 @@ func Logging(next http.Handler) http.Handler {
 			"path", r.URL.Path,
 			"status", rec.status,
 			"duration_ms", time.Since(start).Milliseconds(),
+			"request_id", httpx.GetRequestID(r.Context()),
 		)
 	})
 }

@@ -1,8 +1,10 @@
 package middleware
 
 import (
-	"log/slog"
+	"fmt"
 	"net/http"
+
+	"github.com/ivanosquis10/api-rates-venezuela/internal/presenter"
 )
 
 // Recovery returns middleware that catches panics and returns HTTP 500.
@@ -10,14 +12,7 @@ func Recovery(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if rec := recover(); rec != nil {
-				slog.Error("panic recovered",
-					"error", rec,
-					"method", r.Method,
-					"path", r.URL.Path,
-				)
-				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(http.StatusInternalServerError)
-				w.Write([]byte(`{"error":{"code":"INTERNAL_ERROR","message":"internal server error"}}`))
+				presenter.Error(w, r, fmt.Errorf("panic recovered: %v", rec))
 			}
 		}()
 		next.ServeHTTP(w, r)

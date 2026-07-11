@@ -10,6 +10,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/ivanosquis10/api-rates-venezuela/internal/apierrors"
+	"github.com/ivanosquis10/api-rates-venezuela/internal/presenter"
 	"golang.org/x/time/rate"
 )
 
@@ -103,9 +105,7 @@ func (rl *rateLimiter) Handler(next http.Handler) http.Handler {
 
 		reservation := c.limiter.Reserve()
 		if !reservation.OK() {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusTooManyRequests)
-			_, _ = w.Write([]byte(`{"error":{"code":"TOO_MANY_REQUESTS","message":"too many requests"}}`))
+			presenter.Error(w, r, apierrors.ErrRateLimitExceeded)
 			return
 		}
 
@@ -114,9 +114,7 @@ func (rl *rateLimiter) Handler(next http.Handler) http.Handler {
 			reservation.Cancel()
 			retryAfter := int(math.Ceil(delay.Seconds()))
 			w.Header().Set("Retry-After", strconv.Itoa(retryAfter))
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusTooManyRequests)
-			_, _ = w.Write([]byte(`{"error":{"code":"TOO_MANY_REQUESTS","message":"too many requests"}}`))
+			presenter.Error(w, r, apierrors.ErrRateLimitExceeded)
 			return
 		}
 

@@ -70,12 +70,18 @@ func TestRateLimit_LimitCapacity(t *testing.T) {
 		}
 	}
 
-	var errorResp errorResponse
+	var errorResp responseEnvelope
 	if err := json.Unmarshal(w3.Body.Bytes(), &errorResp); err != nil {
 		t.Fatalf("failed to decode JSON response: %v", err)
 	}
-	if errorResp.Error.Code != "TOO_MANY_REQUESTS" || errorResp.Error.Message != "too many requests" {
-		t.Errorf("unexpected error payload: %+v", errorResp.Error)
+	if errorResp.Success {
+		t.Error("expected success to be false")
+	}
+	if errorResp.ErrorCode == nil || *errorResp.ErrorCode != "RATE_LIMITED" {
+		t.Errorf("expected error_code RATE_LIMITED, got %v", errorResp.ErrorCode)
+	}
+	if errorResp.Error == nil || *errorResp.Error != "too many requests" {
+		t.Errorf("expected error message 'too many requests', got %v", errorResp.Error)
 	}
 }
 

@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -14,6 +15,14 @@ func TestMiddleware_ExecutionOrder(t *testing.T) {
 	// - If RateLimit is before Auth, an request from an IP that has exceeded
 	//   its limit will trigger 429 even if it has an invalid/missing API key.
 	// - A request from a fresh IP will pass RateLimit and fail Auth with 401.
+
+	type responseEnvelope struct {
+		Success   bool    `json:"success"`
+		Data      any     `json:"data"`
+		ErrorCode *string `json:"error_code"`
+		Error     *string `json:"error"`
+		RequestID string  `json:"request_id"`
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -53,6 +62,17 @@ func TestMiddleware_ExecutionOrder(t *testing.T) {
 		if w.Code != http.StatusTooManyRequests {
 			t.Errorf("Expected 429 (rate limit before auth check), got %d", w.Code)
 		}
+
+		var resp responseEnvelope
+		if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("failed to decode JSON: %v", err)
+		}
+		if resp.Success {
+			t.Error("expected success to be false")
+		}
+		if resp.ErrorCode == nil || *resp.ErrorCode != "RATE_LIMITED" {
+			t.Errorf("expected error_code RATE_LIMITED, got %v", resp.ErrorCode)
+		}
 	}
 
 	// Scenario C: Auth failure for a new IP (not rate limited)
@@ -65,6 +85,17 @@ func TestMiddleware_ExecutionOrder(t *testing.T) {
 		handler.ServeHTTP(w, req)
 		if w.Code != http.StatusUnauthorized {
 			t.Errorf("Expected 401 (auth failure after rate limit pass), got %d", w.Code)
+		}
+
+		var resp responseEnvelope
+		if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("failed to decode JSON: %v", err)
+		}
+		if resp.Success {
+			t.Error("expected success to be false")
+		}
+		if resp.ErrorCode == nil || *resp.ErrorCode != "UNAUTHORIZED" {
+			t.Errorf("expected error_code UNAUTHORIZED, got %v", resp.ErrorCode)
 		}
 	}
 }
