@@ -21,22 +21,21 @@ type client struct {
 	lastSeen int64 // Unix timestamp in seconds, read/written atomically via sync/atomic
 }
 
-// rateLimiter implements the rate limiting logic and holds the clients state.
-type rateLimiter struct {
+// RateLimiter implements the rate limiting logic and holds the clients state.
+type RateLimiter struct {
 	mu          sync.RWMutex
 	clients     map[string]*client
 	limitPerMin int
 	pruneAge    time.Duration
 }
 
-// RateLimit returns a middleware that limits requests per IP.
-// It accepts a context to manage the lifecycle of the background janitor.
-func RateLimit(ctx context.Context, limitPerMin int) func(http.Handler) http.Handler {
+// NewRateLimiter constructs a new RateLimiter instance and launches the background janitor goroutine.
+func NewRateLimiter(ctx context.Context, limitPerMin int) *RateLimiter {
 	if limitPerMin <= 0 {
 		limitPerMin = 60
 	}
 
-	rl := &rateLimiter{
+	rl := &RateLimiter{
 		clients:     make(map[string]*client),
 		limitPerMin: limitPerMin,
 		pruneAge:    5 * time.Minute,
@@ -57,10 +56,10 @@ func RateLimit(ctx context.Context, limitPerMin int) func(http.Handler) http.Han
 		}
 	}()
 
-	return rl.Handler
+	return rl
 }
 
-func (rl *rateLimiter) prune() {
+func (rl *RateLimiter) prune() {
 	now := time.Now().Unix()
 	pruneSecs := int64(rl.pruneAge.Seconds())
 	var expiredIPs []string
@@ -86,7 +85,8 @@ func (rl *rateLimiter) prune() {
 	}
 }
 
-func (rl *rateLimiter) Handler(next http.Handler) http.Handler {
+// Handler returns a middleware handler for HTTP rate limiting.
+func (rl *RateLimiter) Handler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ip := chimw.GetClientIP(r.Context())
 		if ip == "" {

@@ -20,7 +20,7 @@ func TestRateLimit_LimitCapacity(t *testing.T) {
 	defer cancel()
 
 	// 2 req/min: rate = 2/60 = 1/30 tokens/sec. Burst = 2.
-	mw := RateLimit(ctx, 2)
+	rl := NewRateLimiter(ctx, 2)
 
 	calledCount := 0
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -28,7 +28,7 @@ func TestRateLimit_LimitCapacity(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	handler := mw(next)
+	handler := rl.Handler(next)
 
 	// 1st request
 	req1 := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -89,12 +89,12 @@ func TestRateLimit_SeparateIPs(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	mw := RateLimit(ctx, 1)
+	rl := NewRateLimiter(ctx, 1)
 
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
-	handler := mw(next)
+	handler := rl.Handler(next)
 
 	req1 := httptest.NewRequest(http.MethodGet, "/", nil)
 	req1.RemoteAddr = "1.1.1.1:1234"
@@ -125,12 +125,12 @@ func TestRateLimit_InvalidIPFallback(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	mw := RateLimit(ctx, 1)
+	rl := NewRateLimiter(ctx, 1)
 
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
-	handler := mw(next)
+	handler := rl.Handler(next)
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.RemoteAddr = "invalid_ip_format"
@@ -147,7 +147,8 @@ func TestRateLimit_JanitorLifecycle(t *testing.T) {
 	startGoroutines := runtime.NumGoroutine()
 
 	ctx, cancel := context.WithCancel(context.Background())
-	_ = RateLimit(ctx, 10)
+	defer cancel()
+	_ = NewRateLimiter(ctx, 10)
 
 	time.Sleep(50 * time.Millisecond)
 
@@ -162,7 +163,7 @@ func TestRateLimit_JanitorLifecycle(t *testing.T) {
 }
 
 func TestRateLimit_Pruning(t *testing.T) {
-	rl := &rateLimiter{
+	rl := &RateLimiter{
 		clients:     make(map[string]*client),
 		limitPerMin: 60,
 		pruneAge:    1 * time.Second,
@@ -194,11 +195,11 @@ func TestRateLimit_Races(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	mw := RateLimit(ctx, 1000)
+	rl := NewRateLimiter(ctx, 1000)
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
-	handler := mw(next)
+	handler := rl.Handler(next)
 
 	var wg sync.WaitGroup
 	const numGoroutines = 10

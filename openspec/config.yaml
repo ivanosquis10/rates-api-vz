@@ -1,0 +1,30 @@
+schema: spec-driven
+
+context: |
+  Tech stack: Go 1.25.0
+  Architecture: Clean Architecture (internal/domain, internal/usecase, internal/handler, internal/store, internal/scraper)
+  Testing: Standard library testing package
+  Style: Idiomatic Go, standard layout
+
+rules:
+  proposal:
+    - Include rollback plan for risky changes
+  specs:
+    - Use Given/When/Then for scenarios
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+  design:
+    - Include sequence diagrams for complex flows
+    - Document architecture decisions with rationale
+  tasks:
+    - Group by phase, use hierarchical numbering
+    - Keep tasks completable in one session
+  apply:
+    - Follow existing code patterns
+    tdd: true
+    test_command: "go test ./..."
+  verify:
+    test_command: "go test -cover ./..."
+    build_command: "go build ./..."
+    coverage_threshold: 80
+  archive:
+    - Warn before merging destructive deltas

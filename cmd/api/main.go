@@ -13,6 +13,7 @@ import (
 	"github.com/ivanosquis10/api-rates-venezuela/internal/config"
 	"github.com/ivanosquis10/api-rates-venezuela/internal/handler"
 	"github.com/ivanosquis10/api-rates-venezuela/internal/http/router"
+	"github.com/ivanosquis10/api-rates-venezuela/internal/middleware"
 	"github.com/ivanosquis10/api-rates-venezuela/internal/scheduler"
 	"github.com/ivanosquis10/api-rates-venezuela/internal/scraper"
 	"github.com/ivanosquis10/api-rates-venezuela/internal/store"
@@ -55,11 +56,13 @@ func main() {
 	sched := scheduler.NewScheduler(uc, cfg.ScrapeHour)
 	sched.Start(ctx)
 
+	rl := middleware.NewRateLimiter(ctx, cfg.RateLimit)
+
 	// Build router engine
 	engine := router.New(router.Deps{
-		Handler: h,
-		Config:  cfg,
-		Context: ctx,
+		Handler:     h,
+		Config:      cfg,
+		RateLimiter: rl,
 	})
 
 	// Start server with graceful shutdown
