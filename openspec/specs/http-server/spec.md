@@ -8,7 +8,9 @@ Chi-based HTTP router with middleware stack that serves the Venezuela Rates API.
 
 ### Requirement: Chi Router Setup
 
-The system SHALL use `github.com/go-chi/chi/v5` as the HTTP router. The router MUST be configured in `cmd/api/main.go` and serve on the configured port.
+The system SHALL use `github.com/go-chi/chi/v5` as the HTTP router. The router MUST be configured in the dedicated `internal/http/router` package and instantiated inside `cmd/api/main.go` via dependency injection. It MUST serve on the configured port.
+
+(Previously: The system SHALL use `github.com/go-chi/chi/v5` as the HTTP router. The router MUST be configured in `cmd/api/main.go` and serve on the configured port.)
 
 #### Scenario: Router compiles and starts
 

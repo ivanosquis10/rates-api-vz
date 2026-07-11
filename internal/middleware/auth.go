@@ -4,6 +4,9 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"net/http"
+
+	"github.com/ivanosquis10/api-rates-venezuela/internal/apierrors"
+	"github.com/ivanosquis10/api-rates-venezuela/internal/presenter"
 )
 
 // Auth returns a middleware that validates requests using an API key.
@@ -16,18 +19,14 @@ func Auth(apiKey string) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			inputKey := r.Header.Get("X-API-Key")
 			if inputKey == "" {
-				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(http.StatusUnauthorized)
-				_, _ = w.Write([]byte(`{"error":{"code":"UNAUTHORIZED","message":"unauthorized"}}`))
+				presenter.Error(w, r, apierrors.ErrUnauthorized)
 				return
 			}
 
 			inputHash := sha256.Sum256([]byte(inputKey))
 
 			if subtle.ConstantTimeCompare(keyHash[:], inputHash[:]) != 1 {
-				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(http.StatusUnauthorized)
-				_, _ = w.Write([]byte(`{"error":{"code":"UNAUTHORIZED","message":"unauthorized"}}`))
+				presenter.Error(w, r, apierrors.ErrUnauthorized)
 				return
 			}
 
@@ -35,3 +34,4 @@ func Auth(apiKey string) func(http.Handler) http.Handler {
 		})
 	}
 }
+

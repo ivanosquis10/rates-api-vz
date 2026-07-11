@@ -10,6 +10,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	chimw "github.com/go-chi/chi/v5/middleware"
+	"github.com/ivanosquis10/api-rates-venezuela/internal/apierrors"
+	"github.com/ivanosquis10/api-rates-venezuela/internal/presenter"
 	"golang.org/x/time/rate"
 )
 
@@ -85,9 +88,13 @@ func (rl *rateLimiter) prune() {
 
 func (rl *rateLimiter) Handler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ip, _, err := net.SplitHostPort(r.RemoteAddr)
-		if err != nil {
-			ip = r.RemoteAddr
+		ip := chimw.GetClientIP(r.Context())
+		if ip == "" {
+			var err error
+			ip, _, err = net.SplitHostPort(r.RemoteAddr)
+			if err != nil {
+				ip = r.RemoteAddr
+			}
 		}
 
 		rl.mu.Lock()
@@ -103,9 +110,7 @@ func (rl *rateLimiter) Handler(next http.Handler) http.Handler {
 
 		reservation := c.limiter.Reserve()
 		if !reservation.OK() {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusTooManyRequests)
-			_, _ = w.Write([]byte(`{"error":{"code":"TOO_MANY_REQUESTS","message":"too many requests"}}`))
+			presenter.Error(w, r, apierrors.ErrRateLimitExceeded)
 			return
 		}
 
@@ -114,9 +119,7 @@ func (rl *rateLimiter) Handler(next http.Handler) http.Handler {
 			reservation.Cancel()
 			retryAfter := int(math.Ceil(delay.Seconds()))
 			w.Header().Set("Retry-After", strconv.Itoa(retryAfter))
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusTooManyRequests)
-			_, _ = w.Write([]byte(`{"error":{"code":"TOO_MANY_REQUESTS","message":"too many requests"}}`))
+			presenter.Error(w, r, apierrors.ErrRateLimitExceeded)
 			return
 		}
 

@@ -1,10 +1,6 @@
-# API Endpoints Specification
+# Delta for api-endpoints
 
-## Purpose
-
-RESTful HTTP handlers that expose RateUsecase operations. Each endpoint maps to a usecase method, parses query parameters, and returns standardized JSON responses.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: GET /rates
 The system SHALL serve `GET /rates` enveloped using presenter helpers.
@@ -73,12 +69,3 @@ The system MUST reject invalid parameters returning HTTP 400 with error envelope
 - THEN HTTP 400 is returned
 - AND response is error envelope with code "BAD_REQUEST"
   (Previously: - AND response body contains `{ "error": { "code": "BAD_REQUEST", "message": "..." } }`)
-
-## Acceptance Criteria
-
-- [ ] GET /rates returns filtered rates in `{ "data": [...] }` envelope
-- [ ] GET /rates/history respects all query params
-- [ ] POST /admin/scrape returns 202 with confirmation
-- [ ] Invalid params return 400 with error envelope
-- [ ] All 7 handler test scenarios pass
-- [ ] Issue #6 endpoint requirements satisfied

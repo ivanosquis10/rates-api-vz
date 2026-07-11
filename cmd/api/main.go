@@ -10,12 +10,9 @@ import (
 	"syscall"
 	_ "time/tzdata"
 
-	"github.com/go-chi/chi/v5"
-	chimw "github.com/go-chi/chi/v5/middleware"
-
 	"github.com/ivanosquis10/api-rates-venezuela/internal/config"
 	"github.com/ivanosquis10/api-rates-venezuela/internal/handler"
-	"github.com/ivanosquis10/api-rates-venezuela/internal/middleware"
+	"github.com/ivanosquis10/api-rates-venezuela/internal/http/router"
 	"github.com/ivanosquis10/api-rates-venezuela/internal/scheduler"
 	"github.com/ivanosquis10/api-rates-venezuela/internal/scraper"
 	"github.com/ivanosquis10/api-rates-venezuela/internal/store"
@@ -58,31 +55,18 @@ func main() {
 	sched := scheduler.NewScheduler(uc, cfg.ScrapeHour)
 	sched.Start(ctx)
 
-	// Build Chi router
-	r := chi.NewRouter()
-
-	// Chi's built-in middleware
-	r.Use(chimw.RealIP)
-	r.Use(chimw.RequestID)
-
-	// Custom middleware: recovery first, then logging
-	r.Use(middleware.Recovery)
-	r.Use(middleware.Logging)
-	r.Use(middleware.RateLimit(ctx, cfg.RateLimit))
-	r.Use(middleware.Auth(cfg.APIKey))
-
-	// Routes
-	r.Get("/rates", h.GetRates)
-	r.Get("/rates/history", h.GetHistory)
-	r.Route("/admin", func(r chi.Router) {
-		r.Post("/scrape", h.TriggerScrape)
+	// Build router engine
+	engine := router.New(router.Deps{
+		Handler: h,
+		Config:  cfg,
+		Context: ctx,
 	})
 
 	// Start server with graceful shutdown
 	addr := fmt.Sprintf(":%d", cfg.Port)
 	srv := &http.Server{
 		Addr:    addr,
-		Handler: r,
+		Handler: engine,
 	}
 
 	// Listen for interrupt signal

@@ -211,15 +211,21 @@ func TestGetHistory_InvalidLimit(t *testing.T) {
 	}
 
 	var body struct {
-		Error struct {
-			Code string `json:"code"`
-		} `json:"error"`
+		Success   bool    `json:"success"`
+		ErrorCode *string `json:"error_code"`
+		Error     *string `json:"error"`
 	}
 	if err := json.NewDecoder(w.Body).Decode(&body); err != nil {
 		t.Fatalf("failed to decode: %v", err)
 	}
-	if body.Error.Code != "BAD_REQUEST" {
-		t.Errorf("expected BAD_REQUEST, got %s", body.Error.Code)
+	if body.Success {
+		t.Error("expected success to be false")
+	}
+	if body.ErrorCode == nil || *body.ErrorCode != "BAD_REQUEST" {
+		t.Errorf("expected BAD_REQUEST, got %v", body.ErrorCode)
+	}
+	if body.Error == nil || *body.Error != "invalid limit parameter" {
+		t.Errorf("expected 'invalid limit parameter', got %v", body.Error)
 	}
 }
 
@@ -238,18 +244,22 @@ func TestTriggerScrape_Success(t *testing.T) {
 
 	h.TriggerScrape(w, req)
 
-	if w.Code != http.StatusAccepted {
-		t.Fatalf("expected 202, got %d", w.Code)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
 	}
 
 	var body struct {
-		Data struct {
+		Success bool `json:"success"`
+		Data    struct {
 			Message      string `json:"message"`
 			RatesScraped int    `json:"rates_scraped"`
 		} `json:"data"`
 	}
 	if err := json.NewDecoder(w.Body).Decode(&body); err != nil {
 		t.Fatalf("failed to decode: %v", err)
+	}
+	if !body.Success {
+		t.Error("expected success to be true")
 	}
 	if body.Data.Message != "scrape triggered" {
 		t.Errorf("expected 'scrape triggered', got %s", body.Data.Message)
@@ -277,15 +287,21 @@ func TestTriggerScrape_Error(t *testing.T) {
 	}
 
 	var body struct {
-		Error struct {
-			Code string `json:"code"`
-		} `json:"error"`
+		Success   bool    `json:"success"`
+		ErrorCode *string `json:"error_code"`
+		Error     *string `json:"error"`
 	}
 	if err := json.NewDecoder(w.Body).Decode(&body); err != nil {
 		t.Fatalf("failed to decode: %v", err)
 	}
-	if body.Error.Code != "INTERNAL_ERROR" {
-		t.Errorf("expected INTERNAL_ERROR, got %s", body.Error.Code)
+	if body.Success {
+		t.Error("expected success to be false")
+	}
+	if body.ErrorCode == nil || *body.ErrorCode != "INTERNAL_ERROR" {
+		t.Errorf("expected INTERNAL_ERROR, got %v", body.ErrorCode)
+	}
+	if body.Error == nil || *body.Error != "internal server error" {
+		t.Errorf("expected 'internal server error', got %v", body.Error)
 	}
 }
 
@@ -367,14 +383,22 @@ func TestVerification_500ResponsesSanitized(t *testing.T) {
 	}
 }
 
-// 4.4 — All responses use { "data": ... } or { "error": { "code", "message" } } envelope.
+// 4.4 — All responses use correct ResponseEnvelope.
 func TestVerification_ResponseEnvelopeConsistency(t *testing.T) {
+	type verificationEnvelope struct {
+		Success   bool    `json:"success"`
+		Data      any     `json:"data"`
+		ErrorCode *string `json:"error_code"`
+		Error     *string `json:"error"`
+		RequestID string  `json:"request_id"`
+	}
+
 	tests := []struct {
-		name    string
-		method  string
-		path    string
-		mock    *mockUsecase
-		wantKey string // "data" or "error"
+		name        string
+		method      string
+		path        string
+		mock        *mockUsecase
+		wantSuccess bool
 	}{
 		{
 			name:   "success uses data envelope",
@@ -385,7 +409,7 @@ func TestVerification_ResponseEnvelopeConsistency(t *testing.T) {
 					return []domain.Rate{{Currency: "USD", RateType: "reference", Value: 36.5}}, nil
 				},
 			},
-			wantKey: "data",
+			wantSuccess: true,
 		},
 		{
 			name:   "error uses error envelope",
@@ -396,17 +420,17 @@ func TestVerification_ResponseEnvelopeConsistency(t *testing.T) {
 					return nil, domain.ErrNotFound
 				},
 			},
-			wantKey: "error",
+			wantSuccess: false,
 		},
 		{
-			name:    "400 uses error envelope",
-			method:  http.MethodGet,
-			path:    "/rates/history?limit=abc",
-			mock:    &mockUsecase{},
-			wantKey: "error",
+			name:        "400 uses error envelope",
+			method:      http.MethodGet,
+			path:        "/rates/history?limit=abc",
+			mock:        &mockUsecase{},
+			wantSuccess: false,
 		},
 		{
-			name:   "202 uses data envelope",
+			name:   "200 uses data envelope for scrape",
 			method: http.MethodPost,
 			path:   "/admin/scrape",
 			mock: &mockUsecase{
@@ -414,7 +438,7 @@ func TestVerification_ResponseEnvelopeConsistency(t *testing.T) {
 					return make([]domain.Rate, 5), nil
 				},
 			},
-			wantKey: "data",
+			wantSuccess: true,
 		},
 	}
 
@@ -425,30 +449,33 @@ func TestVerification_ResponseEnvelopeConsistency(t *testing.T) {
 			w := httptest.NewRecorder()
 			router.ServeHTTP(w, req)
 
-			var raw map[string]json.RawMessage
-			if err := json.NewDecoder(w.Body).Decode(&raw); err != nil {
+			var env verificationEnvelope
+			if err := json.NewDecoder(w.Body).Decode(&env); err != nil {
 				t.Fatalf("failed to decode response: %v", err)
 			}
 
-			if _, ok := raw[tt.wantKey]; !ok {
-				t.Errorf("expected key %q in response, got keys: %v", tt.wantKey, keysOf(raw))
+			if env.Success != tt.wantSuccess {
+				t.Errorf("expected success=%v, got %v", tt.wantSuccess, env.Success)
 			}
-			// Ensure the OTHER key is absent.
-			other := "error"
-			if tt.wantKey == "error" {
-				other = "data"
-			}
-			if _, ok := raw[other]; ok {
-				t.Errorf("unexpected key %q in response with key %q", other, tt.wantKey)
+
+			if tt.wantSuccess {
+				if env.Data == nil {
+					t.Error("expected data field to be populated, got nil")
+				}
+				if env.ErrorCode != nil {
+					t.Errorf("expected error_code to be nil, got %v", env.ErrorCode)
+				}
+				if env.Error != nil {
+					t.Errorf("expected error to be nil, got %v", env.Error)
+				}
+			} else {
+				if env.ErrorCode == nil {
+					t.Error("expected error_code to be populated, got nil")
+				}
+				if env.Error == nil {
+					t.Error("expected error to be populated, got nil")
+				}
 			}
 		})
 	}
-}
-
-func keysOf(m map[string]json.RawMessage) []string {
-	ks := make([]string, 0, len(m))
-	for k := range m {
-		ks = append(ks, k)
-	}
-	return ks
 }
