@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.1](https://github.com/ivanosquis10/api-rates-venezuela/compare/v1.2.0...v1.2.1) (2026-07-12)
+
+
+### Bug Fixes
+
+* **store:** return all rates when currency empty and handle duplicates ([e9adfc6](https://github.com/ivanosquis10/api-rates-venezuela/commit/e9adfc6f39ffd65fbff263ecb9c56b8a3db6c4f2))
+* **store:** return all rates when currency empty and handle duplicates (closes [#27](https://github.com/ivanosquis10/api-rates-venezuela/issues/27)) ([9d0e95e](https://github.com/ivanosquis10/api-rates-venezuela/commit/9d0e95e2993aba635257b393eb3ff494f74f984f))
+
 ## [1.2.0](https://github.com/ivanosquis10/api-rates-venezuela/compare/v1.1.0...v1.2.0) (2026-07-11)
 
 
