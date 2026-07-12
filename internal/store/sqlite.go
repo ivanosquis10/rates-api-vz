@@ -74,7 +74,7 @@ func NewStore(db *sql.DB) *Store {
 // insertRate inserts a single rate row (used by tests and internally).
 func insertRate(db *sql.DB, r domain.Rate) error {
 	_, err := db.Exec(
-		`INSERT INTO rates (currency, rate_type, bank, value, scraped_at)
+		`INSERT OR REPLACE INTO rates (currency, rate_type, bank, value, scraped_at)
 		 VALUES (?, ?, ?, ?, ?)`,
 		r.Currency, r.RateType, r.Bank, r.Value, r.ScrapedAt,
 	)
@@ -90,7 +90,7 @@ func (s *Store) SaveRates(ctx context.Context, rates []domain.Rate) error {
 	defer tx.Rollback()
 
 	stmt, err := tx.PrepareContext(ctx,
-		`INSERT INTO rates (currency, rate_type, bank, value, scraped_at)
+		`INSERT OR REPLACE INTO rates (currency, rate_type, bank, value, scraped_at)
 		 VALUES (?, ?, ?, ?, ?)`)
 	if err != nil {
 		return fmt.Errorf("prepare statement: %w", err)
@@ -113,10 +113,10 @@ func (s *Store) GetLatestRates(ctx context.Context, currency string) ([]domain.R
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT id, currency, rate_type, bank, value, scraped_at
 		 FROM rates
-		 WHERE currency = ?
+		 WHERE ? = '' OR currency = ?
 		 GROUP BY currency, rate_type
 		 HAVING scraped_at = MAX(scraped_at)`,
-		currency)
+		currency, currency)
 	if err != nil {
 		return nil, fmt.Errorf("query latest rates: %w", err)
 	}

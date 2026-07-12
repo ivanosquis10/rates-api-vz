@@ -123,10 +123,20 @@ func TestUniqueConstraintEnforced(t *testing.T) {
 		t.Fatalf("first insert failed: %v", err)
 	}
 
-	// Insert duplicate — must fail with unique constraint violation
+	// Insert duplicate — with INSERT OR REPLACE, should succeed (replace)
 	err = insertRate(db, rate)
-	if err == nil {
-		t.Error("expected unique constraint violation on duplicate insert, got nil")
+	if err != nil {
+		t.Errorf("duplicate insert failed: %v", err)
+	}
+
+	// Verify only one row exists (replace, not duplicate)
+	var count int
+	err = db.QueryRow("SELECT COUNT(*) FROM rates").Scan(&count)
+	if err != nil {
+		t.Fatalf("count query failed: %v", err)
+	}
+	if count != 1 {
+		t.Errorf("expected 1 row after replace, got %d", count)
 	}
 }
 
@@ -364,22 +374,22 @@ func TestSaveRatesDuplicateViaAPI(t *testing.T) {
 		t.Fatalf("first SaveRates failed: %v", err)
 	}
 
-	// Second save with identical (currency, rate_type, bank, scraped_at) must fail
+	// Second save with identical (currency, rate_type, bank, scraped_at) should succeed (replace)
 	err := s.SaveRates(ctx, []domain.Rate{rate})
-	if err == nil {
-		t.Error("expected error on duplicate SaveRates, got nil")
+	if err != nil {
+		t.Errorf("duplicate SaveRates failed: %v", err)
 	}
 
-	// Verify original row unchanged
+	// Verify still one row (replace, not duplicate)
 	latest, err := s.GetLatestRates(ctx, "USD")
 	if err != nil {
 		t.Fatalf("GetLatestRates failed: %v", err)
 	}
 	if len(latest) != 1 {
-		t.Fatalf("expected 1 rate after failed duplicate, got %d", len(latest))
+		t.Fatalf("expected 1 rate after replace, got %d", len(latest))
 	}
 	if latest[0].Value != 36.50 {
-		t.Errorf("original rate value changed: got %v, want 36.50", latest[0].Value)
+		t.Errorf("rate value changed: got %v, want 36.50", latest[0].Value)
 	}
 }
 
@@ -575,5 +585,93 @@ func TestGetHistoryRatesNilSafety(t *testing.T) {
 	}
 	if len(result) != 0 {
 		t.Errorf("expected 0 rates, got %d", len(result))
+	}
+}
+
+// ─── Bug Fix Tests ──────────────────────────────────────────────────────────
+
+func TestGetLatestRatesEmptyCurrencyAll(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	now := time.Date(2026, 7, 12, 12, 0, 0, 0, time.UTC)
+	rates := []domain.Rate{
+		createTestRate("USD", "reference", "", now, 36.50),
+		createTestRate("EUR", "reference", "", now, 42.00),
+		createTestRate("USD", "parallel", "", now, 100.00),
+	}
+
+	if err := s.SaveRates(ctx, rates); err != nil {
+		t.Fatalf("SaveRates failed: %v", err)
+	}
+
+	// Empty currency string should return ALL rates (latest per currency, rate_type)
+	latest, err := s.GetLatestRates(ctx, "")
+	if err != nil {
+		t.Fatalf("GetLatestRates failed: %v", err)
+	}
+	if len(latest) != 3 {
+		t.Errorf("expected 3 rates for empty currency filter, got %d", len(latest))
+	}
+}
+
+func TestGetLatestRatesSpecificCurrency(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	now := time.Date(2026, 7, 12, 12, 0, 0, 0, time.UTC)
+	rates := []domain.Rate{
+		createTestRate("USD", "reference", "", now, 36.50),
+		createTestRate("EUR", "reference", "", now, 42.00),
+		createTestRate("USD", "parallel", "", now, 100.00),
+	}
+
+	if err := s.SaveRates(ctx, rates); err != nil {
+		t.Fatalf("SaveRates failed: %v", err)
+	}
+
+	// Specifying USD should return only USD rates
+	latest, err := s.GetLatestRates(ctx, "USD")
+	if err != nil {
+		t.Fatalf("GetLatestRates failed: %v", err)
+	}
+	if len(latest) != 2 {
+		t.Errorf("expected 2 USD rates, got %d", len(latest))
+	}
+	for _, r := range latest {
+		if r.Currency != "USD" {
+			t.Errorf("expected currency USD, got %s", r.Currency)
+		}
+	}
+}
+
+func TestSaveRatesDuplicateReplace(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	now := time.Date(2026, 7, 12, 12, 0, 0, 0, time.UTC)
+	rate := createTestRate("USD", "reference", "", now, 36.50)
+
+	// First save succeeds
+	if err := s.SaveRates(ctx, []domain.Rate{rate}); err != nil {
+		t.Fatalf("first SaveRates failed: %v", err)
+	}
+
+	// Second save with same unique columns but different value should replace
+	updatedRate := createTestRate("USD", "reference", "", now, 37.00)
+	if err := s.SaveRates(ctx, []domain.Rate{updatedRate}); err != nil {
+		t.Fatalf("second SaveRates failed: %v", err)
+	}
+
+	// Verify the value was replaced
+	latest, err := s.GetLatestRates(ctx, "USD")
+	if err != nil {
+		t.Fatalf("GetLatestRates failed: %v", err)
+	}
+	if len(latest) != 1 {
+		t.Fatalf("expected 1 rate after replace, got %d", len(latest))
+	}
+	if latest[0].Value != 37.00 {
+		t.Errorf("expected replaced value 37.00, got %v", latest[0].Value)
 	}
 }
