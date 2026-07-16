@@ -134,3 +134,85 @@ func TestScheduler_RetryLogic_ContextCancelled(t *testing.T) {
 		t.Errorf("expected only 1 call before cancel, got %d", mu.calls)
 	}
 }
+
+func TestRunNow_CallsScrapeRates(t *testing.T) {
+	mu := &mockUsecase{
+		scrapeFunc: func(ctx context.Context) ([]domain.Rate, error) {
+			return []domain.Rate{
+				{Currency: "USD", Value: 36.5},
+			}, nil
+		},
+	}
+	sched := NewScheduler(mu, "0 8 * * *", "*/5 8-18 * * 1-5")
+	sched.backoffDelays = []time.Duration{
+		1 * time.Millisecond,
+		2 * time.Millisecond,
+		4 * time.Millisecond,
+	}
+
+	sched.RunNow(context.Background())
+
+	if mu.calls != 1 {
+		t.Errorf("expected ScrapeRates to be called once, got %d", mu.calls)
+	}
+}
+
+func TestRunNow_ReturnsOnFailure(t *testing.T) {
+	mu := &mockUsecase{
+		scrapeFunc: func(ctx context.Context) ([]domain.Rate, error) {
+			return nil, errors.New("scrape failed")
+		},
+	}
+	sched := NewScheduler(mu, "0 8 * * *", "*/5 8-18 * * 1-5")
+	sched.backoffDelays = []time.Duration{
+		1 * time.Millisecond,
+		2 * time.Millisecond,
+		4 * time.Millisecond,
+	}
+
+	done := make(chan struct{})
+	go func() {
+		sched.RunNow(context.Background())
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		// RunNow returned — success
+	case <-time.After(5 * time.Second):
+		t.Error("RunNow did not return within 5s after scrape failure")
+	}
+}
+
+func TestRunNow_RespectsContextCancel(t *testing.T) {
+	mu := &mockUsecase{
+		scrapeFunc: func(ctx context.Context) ([]domain.Rate, error) {
+			return nil, errors.New("scrape failed")
+		},
+	}
+	sched := NewScheduler(mu, "0 8 * * *", "*/5 8-18 * * 1-5")
+	sched.backoffDelays = []time.Duration{
+		10 * time.Second,
+		10 * time.Second,
+		10 * time.Second,
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		time.Sleep(10 * time.Millisecond)
+		cancel()
+	}()
+
+	done := make(chan struct{})
+	go func() {
+		sched.RunNow(ctx)
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		// Success — RunNow exited after context cancel
+	case <-time.After(2 * time.Second):
+		t.Error("RunNow did not exit within 2s after context cancellation")
+	}
+}
