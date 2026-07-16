@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.3.0](https://github.com/ivanosquis10/api-rates-venezuela/compare/v1.2.1...v1.3.0) (2026-07-16)
+
+
+### Features
+
+* simplify rates api to bcv official reference rates only ([896587f](https://github.com/ivanosquis10/api-rates-venezuela/commit/896587f5e8c2b4fb2642888fe025677af79e9061))
+* simplify rates api to bcv official reference rates only ([5622758](https://github.com/ivanosquis10/api-rates-venezuela/commit/5622758d1bc3c9657613f8dee0b1015682451710))
+
+
+### Bug Fixes
+
+* map sql.ErrNoRows to domain.ErrNotFound and return empty slice on list endpoints ([9c9c16c](https://github.com/ivanosquis10/api-rates-venezuela/commit/9c9c16cc3ac8bc514a5c85d3ac6204c452ae9897))
+
 ## [1.2.1](https://github.com/ivanosquis10/api-rates-venezuela/compare/v1.2.0...v1.2.1) (2026-07-12)
 
 

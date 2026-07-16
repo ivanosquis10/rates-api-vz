@@ -61,7 +61,7 @@ func main() {
 	uc := usecase.NewRateUsecase(repo, bcvScraper)
 	h := handler.NewHandler(uc)
 
-	sched := scheduler.NewScheduler(uc, cfg.ScrapeHour)
+	sched := scheduler.NewScheduler(uc, cfg.ScrapeCronMaintenance, cfg.ScrapeCronWindow)
 	sched.Start(ctx)
 
 	// Run initial scrape in background to avoid blocking server startup.

@@ -11,7 +11,8 @@ func TestConfigDefaults(t *testing.T) {
 	os.Setenv("API_KEY", "test-key")
 	os.Unsetenv("PORT")
 	os.Unsetenv("DB_PATH")
-	os.Unsetenv("SCRAPE_HOUR")
+	os.Unsetenv("SCRAPE_CRON_MAINTENANCE")
+	os.Unsetenv("SCRAPE_CRON_WINDOW")
 	os.Unsetenv("RATE_LIMIT")
 	defer os.Unsetenv("API_KEY")
 
@@ -26,8 +27,11 @@ func TestConfigDefaults(t *testing.T) {
 	if cfg.DBPath != "./rates.db" {
 		t.Errorf("expected default DBPath=./rates.db, got %s", cfg.DBPath)
 	}
-	if cfg.ScrapeHour != 8 {
-		t.Errorf("expected default ScrapeHour=8, got %d", cfg.ScrapeHour)
+	if cfg.ScrapeCronMaintenance != "0 8 * * *" {
+		t.Errorf("expected default ScrapeCronMaintenance=\"0 8 * * *\", got %s", cfg.ScrapeCronMaintenance)
+	}
+	if cfg.ScrapeCronWindow != "*/5 8-18 * * 1-5" {
+		t.Errorf("expected default ScrapeCronWindow=\"*/5 8-18 * * 1-5\", got %s", cfg.ScrapeCronWindow)
 	}
 	if cfg.RateLimit != 60 {
 		t.Errorf("expected default RateLimit=60, got %d", cfg.RateLimit)
@@ -39,7 +43,8 @@ func TestConfigAPIKeyRequired(t *testing.T) {
 	os.Unsetenv("API_KEY")
 	os.Unsetenv("PORT")
 	os.Unsetenv("DB_PATH")
-	os.Unsetenv("SCRAPE_HOUR")
+	os.Unsetenv("SCRAPE_CRON_MAINTENANCE")
+	os.Unsetenv("SCRAPE_CRON_WINDOW")
 	os.Unsetenv("RATE_LIMIT")
 
 	_, err := Load()
@@ -52,13 +57,15 @@ func TestConfigEnvVarOverride(t *testing.T) {
 	os.Setenv("API_KEY", "test-key-123")
 	os.Setenv("PORT", "3000")
 	os.Setenv("DB_PATH", "/tmp/test.db")
-	os.Setenv("SCRAPE_HOUR", "14")
+	os.Setenv("SCRAPE_CRON_MAINTENANCE", "0 9 * * *")
+	os.Setenv("SCRAPE_CRON_WINDOW", "*/10 * * * *")
 	os.Setenv("RATE_LIMIT", "120")
 	defer func() {
 		os.Unsetenv("API_KEY")
 		os.Unsetenv("PORT")
 		os.Unsetenv("DB_PATH")
-		os.Unsetenv("SCRAPE_HOUR")
+		os.Unsetenv("SCRAPE_CRON_MAINTENANCE")
+		os.Unsetenv("SCRAPE_CRON_WINDOW")
 		os.Unsetenv("RATE_LIMIT")
 	}()
 
@@ -76,8 +83,11 @@ func TestConfigEnvVarOverride(t *testing.T) {
 	if cfg.DBPath != "/tmp/test.db" {
 		t.Errorf("expected DBPath=/tmp/test.db, got %s", cfg.DBPath)
 	}
-	if cfg.ScrapeHour != 14 {
-		t.Errorf("expected ScrapeHour=14, got %d", cfg.ScrapeHour)
+	if cfg.ScrapeCronMaintenance != "0 9 * * *" {
+		t.Errorf("expected ScrapeCronMaintenance=\"0 9 * * *\", got %s", cfg.ScrapeCronMaintenance)
+	}
+	if cfg.ScrapeCronWindow != "*/10 * * * *" {
+		t.Errorf("expected ScrapeCronWindow=\"*/10 * * * *\", got %s", cfg.ScrapeCronWindow)
 	}
 	if cfg.RateLimit != 120 {
 		t.Errorf("expected RateLimit=120, got %d", cfg.RateLimit)
@@ -102,13 +112,15 @@ func TestConfigPartialOverride(t *testing.T) {
 	os.Setenv("API_KEY", "partial-key")
 	os.Setenv("PORT", "9090")
 	os.Unsetenv("DB_PATH")
-	os.Unsetenv("SCRAPE_HOUR")
+	os.Unsetenv("SCRAPE_CRON_MAINTENANCE")
+	os.Unsetenv("SCRAPE_CRON_WINDOW")
 	os.Unsetenv("RATE_LIMIT")
 	defer func() {
 		os.Unsetenv("API_KEY")
 		os.Unsetenv("PORT")
 		os.Unsetenv("DB_PATH")
-		os.Unsetenv("SCRAPE_HOUR")
+		os.Unsetenv("SCRAPE_CRON_MAINTENANCE")
+		os.Unsetenv("SCRAPE_CRON_WINDOW")
 		os.Unsetenv("RATE_LIMIT")
 	}()
 
@@ -128,8 +140,11 @@ func TestConfigPartialOverride(t *testing.T) {
 	if cfg.DBPath != "./rates.db" {
 		t.Errorf("expected default DBPath=./rates.db, got %s", cfg.DBPath)
 	}
-	if cfg.ScrapeHour != 8 {
-		t.Errorf("expected default ScrapeHour=8, got %d", cfg.ScrapeHour)
+	if cfg.ScrapeCronMaintenance != "0 8 * * *" {
+		t.Errorf("expected default ScrapeCronMaintenance=\"0 8 * * *\", got %s", cfg.ScrapeCronMaintenance)
+	}
+	if cfg.ScrapeCronWindow != "*/5 8-18 * * 1-5" {
+		t.Errorf("expected default ScrapeCronWindow=\"*/5 8-18 * * 1-5\", got %s", cfg.ScrapeCronWindow)
 	}
 	if cfg.RateLimit != 60 {
 		t.Errorf("expected default RateLimit=60, got %d", cfg.RateLimit)
@@ -141,7 +156,8 @@ func TestConfigLoadFromDotEnv(t *testing.T) {
 	os.Unsetenv("API_KEY")
 	os.Unsetenv("PORT")
 	os.Unsetenv("DB_PATH")
-	os.Unsetenv("SCRAPE_HOUR")
+	os.Unsetenv("SCRAPE_CRON_MAINTENANCE")
+	os.Unsetenv("SCRAPE_CRON_WINDOW")
 	os.Unsetenv("RATE_LIMIT")
 
 	// Create temp dir with .env file
@@ -179,7 +195,8 @@ func TestConfigEnvVarOverridesDotEnv(t *testing.T) {
 	os.Setenv("PORT", "3000")
 	os.Unsetenv("API_KEY")
 	os.Unsetenv("DB_PATH")
-	os.Unsetenv("SCRAPE_HOUR")
+	os.Unsetenv("SCRAPE_CRON_MAINTENANCE")
+	os.Unsetenv("SCRAPE_CRON_WINDOW")
 	os.Unsetenv("RATE_LIMIT")
 	defer os.Unsetenv("PORT")
 
@@ -216,7 +233,8 @@ func TestConfigMissingDotEnvUsesDefaults(t *testing.T) {
 	os.Setenv("API_KEY", "valid-key")
 	os.Unsetenv("PORT")
 	os.Unsetenv("DB_PATH")
-	os.Unsetenv("SCRAPE_HOUR")
+	os.Unsetenv("SCRAPE_CRON_MAINTENANCE")
+	os.Unsetenv("SCRAPE_CRON_WINDOW")
 	os.Unsetenv("RATE_LIMIT")
 	defer os.Unsetenv("API_KEY")
 
@@ -237,8 +255,11 @@ func TestConfigMissingDotEnvUsesDefaults(t *testing.T) {
 	if cfg.DBPath != "./rates.db" {
 		t.Errorf("expected default DBPath=./rates.db, got %s", cfg.DBPath)
 	}
-	if cfg.ScrapeHour != 8 {
-		t.Errorf("expected default ScrapeHour=8, got %d", cfg.ScrapeHour)
+	if cfg.ScrapeCronMaintenance != "0 8 * * *" {
+		t.Errorf("expected default ScrapeCronMaintenance=\"0 8 * * *\", got %s", cfg.ScrapeCronMaintenance)
+	}
+	if cfg.ScrapeCronWindow != "*/5 8-18 * * 1-5" {
+		t.Errorf("expected default ScrapeCronWindow=\"*/5 8-18 * * 1-5\", got %s", cfg.ScrapeCronWindow)
 	}
 	if cfg.RateLimit != 60 {
 		t.Errorf("expected default RateLimit=60, got %d", cfg.RateLimit)

@@ -7,11 +7,10 @@ type Repository interface {
 	// SaveRates persists a batch of rates atomically.
 	SaveRates(ctx context.Context, rates []Rate) error
 
-	// GetLatestRates returns the most recent rate for each (currency, rate_type) combination
-	// for the given currency. Returns empty slice (not nil) when no rates exist.
-	GetLatestRates(ctx context.Context, currency string) ([]Rate, error)
+	// GetLatestRate returns the most recent rate for the given currency.
+	GetLatestRate(ctx context.Context, currency string) (Rate, error)
 
 	// GetHistoryRates returns rates matching the given filters, ordered by scraped_at DESC,
 	// limited to the specified count. Returns empty slice (not nil) when no rates match.
-	GetHistoryRates(ctx context.Context, currency, rateType, from, to string, limit int) ([]Rate, error)
+	GetHistoryRates(ctx context.Context, currency, from, to string, limit int) ([]Rate, error)
 }
