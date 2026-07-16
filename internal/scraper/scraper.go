@@ -26,11 +26,10 @@ type BCVScraper struct {
 
 // Selector constants — isolated for easy update when BCV changes HTML.
 const (
-	selUSDRate   = "#dolar .strong-tb"
-	selEURRate   = "#euro .strong-tb"
-	selBankTable = ".views-table tbody tr"
-	selDate      = ".date-display-single"
-	selDateAttr  = "content"
+	selUSDRate  = "#dolar .strong-tb"
+	selEURRate  = "#euro .strong-tb"
+	selDate     = ".date-display-single"
+	selDateAttr = "content"
 )
 
 // NewBCVScraper creates a new BCVScraper with the given HTTP client and URL.
@@ -44,7 +43,7 @@ func NewBCVScraper(client *http.Client, homepageURL string) *BCVScraper {
 // Scrape fetches BCV homepage, parses exchange rates,
 // and returns all discovered rates with a shared ScrapedAt timestamp.
 func (s *BCVScraper) Scrape(ctx context.Context) ([]domain.Rate, error) {
-	// Fetch homepage for references, date, and bank rates
+	// Fetch homepage for references, date
 	homeDoc, err := s.fetchPage(ctx, s.homepageURL)
 	if err != nil {
 		return nil, apierrors.NewProviderError(fmt.Errorf("fetch page: %w", err))
@@ -62,22 +61,11 @@ func (s *BCVScraper) Scrape(ctx context.Context) ([]domain.Rate, error) {
 		return nil, apierrors.NewProviderError(fmt.Errorf("parse date: %w", err))
 	}
 
-	// Parse bank rates
-	bankRates, err := parseBankRates(homeDoc)
-	if err != nil {
-		return nil, apierrors.NewProviderError(fmt.Errorf("parse bank rates: %w", err))
+	for i := range refRates {
+		refRates[i].ScrapedAt = scrapedAt
 	}
 
-	// Combine all rates and set ScrapedAt
-	allRates := make([]domain.Rate, 0, len(refRates)+len(bankRates))
-	allRates = append(allRates, refRates...)
-	allRates = append(allRates, bankRates...)
-
-	for i := range allRates {
-		allRates[i].ScrapedAt = scrapedAt
-	}
-
-	return allRates, nil
+	return refRates, nil
 }
 
 // fetchPage performs an HTTP GET, checks for 2xx status, and parses the response as HTML.
@@ -119,7 +107,6 @@ func parseReferenceRates(doc *goquery.Document) ([]domain.Rate, error) {
 	}
 	rates = append(rates, domain.Rate{
 		Currency: "USD",
-		RateType: "reference",
 		Value:    usdVal,
 	})
 
@@ -129,50 +116,7 @@ func parseReferenceRates(doc *goquery.Document) ([]domain.Rate, error) {
 	}
 	rates = append(rates, domain.Rate{
 		Currency: "EUR",
-		RateType: "reference",
 		Value:    eurVal,
-	})
-
-	return rates, nil
-}
-
-// parseBankRates extracts buy/sell rates from the bank rates table.
-func parseBankRates(doc *goquery.Document) ([]domain.Rate, error) {
-	var rates []domain.Rate
-
-	doc.Find(selBankTable).Each(func(_ int, row *goquery.Selection) {
-		cells := row.Find("td")
-		if cells.Length() < 3 {
-			return // skip malformed rows
-		}
-
-		bankName := strings.TrimSpace(cells.Eq(0).Text())
-		if bankName == "" {
-			return // skip rows without bank name
-		}
-
-		buyVal, err := parseNumericText(cells.Eq(1).Text())
-		if err != nil {
-			return // skip rows with invalid buy rate
-		}
-
-		sellVal, err := parseNumericText(cells.Eq(2).Text())
-		if err != nil {
-			return // skip rows with invalid sell rate
-		}
-
-		rates = append(rates, domain.Rate{
-			Currency: "USD",
-			RateType: "buy",
-			Bank:     bankName,
-			Value:    buyVal,
-		})
-		rates = append(rates, domain.Rate{
-			Currency: "USD",
-			RateType: "sell",
-			Bank:     bankName,
-			Value:    sellVal,
-		})
 	})
 
 	return rates, nil
@@ -208,7 +152,6 @@ func parseNumericText(text string) (float64, error) {
 	if text == "" {
 		return 0, fmt.Errorf("empty numeric value")
 	}
-	// Handle comma as decimal separator (common in Venezuelan formatting)
 	text = strings.ReplaceAll(text, ",", ".")
 	val, err := strconv.ParseFloat(text, 64)
 	if err != nil {

@@ -10,8 +10,8 @@ import (
 // Usecaser is the interface that RateUsecase satisfies.
 // Used for dependency injection and testability.
 type Usecaser interface {
-	GetCurrentRates(ctx context.Context, currency, rateType string) ([]domain.Rate, error)
-	GetHistoryRates(ctx context.Context, currency, rateType, from, to string, limit int) ([]domain.Rate, error)
+	GetLatestRate(ctx context.Context, currency string) (domain.Rate, error)
+	GetHistoryRates(ctx context.Context, currency, from, to string, limit int) ([]domain.Rate, error)
 	ScrapeRates(ctx context.Context) ([]domain.Rate, error)
 }
 

@@ -6,8 +6,6 @@ import "time"
 type Rate struct {
 	ID        int64     `json:"id"         sqlite:"id"`
 	Currency  string    `json:"currency"   sqlite:"currency"`
-	RateType  string    `json:"rate_type"  sqlite:"rate_type"`
-	Bank      string    `json:"bank"       sqlite:"bank"`
 	Value     float64   `json:"value"      sqlite:"value"`
 	ScrapedAt time.Time `json:"scraped_at" sqlite:"scraped_at"`
 }

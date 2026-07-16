@@ -42,8 +42,12 @@ func New(deps Deps) http.Handler {
 	// API v1 routes
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/health", deps.Handler.Health)
-		r.Get("/rates", deps.Handler.GetRates)
-		r.Get("/rates/history", deps.Handler.GetHistory)
+		r.Get("/dollars", deps.Handler.GetUSD)
+		r.Get("/dollars/official", deps.Handler.GetOfficialUSD)
+		r.Get("/euros", deps.Handler.GetEUR)
+		r.Get("/euros/official", deps.Handler.GetOfficialEUR)
+		r.Get("/history/dollars", deps.Handler.GetUSDHistory)
+		r.Get("/history/euros", deps.Handler.GetEURHistory)
 		r.Route("/admin", func(r chi.Router) {
 			r.Post("/scrape", deps.Handler.TriggerScrape)
 		})

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"strings"
 
 	"github.com/ivanosquis10/api-rates-venezuela/internal/domain"
 	"github.com/ivanosquis10/api-rates-venezuela/internal/scraper"
@@ -35,28 +34,19 @@ func (uc *RateUsecase) ScrapeRates(ctx context.Context) ([]domain.Rate, error) {
 	return rates, nil
 }
 
-// GetCurrentRates returns latest rates, optionally filtered by rateType.
-func (uc *RateUsecase) GetCurrentRates(ctx context.Context, currency, rateType string) ([]domain.Rate, error) {
-	rates, err := uc.repo.GetLatestRates(ctx, currency)
+// GetLatestRate returns the most recent rate for the given currency.
+func (uc *RateUsecase) GetLatestRate(ctx context.Context, currency string) (domain.Rate, error) {
+	rate, err := uc.repo.GetLatestRate(ctx, currency)
 	if err != nil {
-		slog.Error("get latest rates failed", "method", "GetCurrentRates", "error", err)
-		return nil, fmt.Errorf("GetCurrentRates: %w", err)
+		slog.Error("get latest rate failed", "method", "GetLatestRate", "error", err, "currency", currency)
+		return domain.Rate{}, fmt.Errorf("GetLatestRate: %w", err)
 	}
-	if rateType == "" {
-		return rates, nil
-	}
-	filtered := make([]domain.Rate, 0, len(rates))
-	for _, r := range rates {
-		if strings.EqualFold(r.RateType, rateType) {
-			filtered = append(filtered, r)
-		}
-	}
-	return filtered, nil
+	return rate, nil
 }
 
 // GetHistoryRates delegates to the repository with all filter parameters.
-func (uc *RateUsecase) GetHistoryRates(ctx context.Context, currency, rateType, from, to string, limit int) ([]domain.Rate, error) {
-	rates, err := uc.repo.GetHistoryRates(ctx, currency, rateType, from, to, limit)
+func (uc *RateUsecase) GetHistoryRates(ctx context.Context, currency, from, to string, limit int) ([]domain.Rate, error) {
+	rates, err := uc.repo.GetHistoryRates(ctx, currency, from, to, limit)
 	if err != nil {
 		slog.Error("get history rates failed", "method", "GetHistoryRates", "error", err)
 		return nil, fmt.Errorf("GetHistoryRates: %w", err)

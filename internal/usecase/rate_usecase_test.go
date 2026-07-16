@@ -20,6 +20,7 @@ func (m *mockScraper) Scrape(ctx context.Context) ([]domain.Rate, error) {
 
 // mockRepository implements domain.Repository for testing.
 type mockRepository struct {
+	rate       domain.Rate
 	rates      []domain.Rate
 	saveErr    error
 	latestErr  error
@@ -32,11 +33,11 @@ func (m *mockRepository) SaveRates(ctx context.Context, rates []domain.Rate) err
 	return m.saveErr
 }
 
-func (m *mockRepository) GetLatestRates(ctx context.Context, currency string) ([]domain.Rate, error) {
-	return m.rates, m.latestErr
+func (m *mockRepository) GetLatestRate(ctx context.Context, currency string) (domain.Rate, error) {
+	return m.rate, m.latestErr
 }
 
-func (m *mockRepository) GetHistoryRates(ctx context.Context, currency, rateType, from, to string, limit int) ([]domain.Rate, error) {
+func (m *mockRepository) GetHistoryRates(ctx context.Context, currency, from, to string, limit int) ([]domain.Rate, error) {
 	return m.rates, m.historyErr
 }
 
@@ -44,8 +45,8 @@ func (m *mockRepository) GetHistoryRates(ctx context.Context, currency, rateType
 
 func TestScrapeRates_Success(t *testing.T) {
 	rates := []domain.Rate{
-		{Currency: "USD", RateType: "reference", Value: 36.5},
-		{Currency: "EUR", RateType: "reference", Value: 40.0},
+		{Currency: "USD", Value: 36.5},
+		{Currency: "EUR", Value: 40.0},
 	}
 
 	scraper := &mockScraper{rates: rates, err: nil}
@@ -87,7 +88,7 @@ func TestScrapeRates_ScraperError(t *testing.T) {
 
 func TestScrapeRates_RepoError(t *testing.T) {
 	rates := []domain.Rate{
-		{Currency: "USD", RateType: "reference", Value: 36.5},
+		{Currency: "USD", Value: 36.5},
 	}
 
 	scraper := &mockScraper{rates: rates, err: nil}
@@ -108,84 +109,48 @@ func TestScrapeRates_RepoError(t *testing.T) {
 	}
 }
 
-// --- GetCurrentRates tests ---
+// --- GetLatestRate tests ---
 
-func TestGetCurrentRates_NoFilter(t *testing.T) {
+func TestGetLatestRate_Success(t *testing.T) {
 	now := time.Now()
-	rates := []domain.Rate{
-		{Currency: "USD", RateType: "reference", Value: 36.5, ScrapedAt: now},
-		{Currency: "USD", RateType: "buy", Value: 35.0, ScrapedAt: now},
-		{Currency: "USD", RateType: "sell", Value: 37.0, ScrapedAt: now},
-	}
+	rate := domain.Rate{Currency: "USD", Value: 36.5, ScrapedAt: now}
 
 	scraper := &mockScraper{}
-	repo := &mockRepository{rates: rates}
+	repo := &mockRepository{rate: rate}
 
 	uc := NewRateUsecase(repo, scraper)
 
-	result, err := uc.GetCurrentRates(context.Background(), "USD", "")
+	result, err := uc.GetLatestRate(context.Background(), "USD")
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(result) != 3 {
-		t.Errorf("expected 3 rates, got %d", len(result))
+	if result.Currency != "USD" {
+		t.Errorf("expected USD, got %s", result.Currency)
+	}
+	if result.Value != 36.5 {
+		t.Errorf("expected 36.5, got %f", result.Value)
 	}
 }
 
-func TestGetCurrentRates_WithFilter(t *testing.T) {
-	now := time.Now()
-	rates := []domain.Rate{
-		{Currency: "USD", RateType: "reference", Value: 36.5, ScrapedAt: now},
-		{Currency: "USD", RateType: "reference", Value: 36.6, ScrapedAt: now},
-		{Currency: "USD", RateType: "buy", Value: 35.0, ScrapedAt: now},
-	}
-
+func TestGetLatestRate_Error(t *testing.T) {
 	scraper := &mockScraper{}
-	repo := &mockRepository{rates: rates}
+	repo := &mockRepository{latestErr: domain.ErrNotFound}
 
 	uc := NewRateUsecase(repo, scraper)
 
-	result, err := uc.GetCurrentRates(context.Background(), "USD", "reference")
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(result) != 2 {
-		t.Errorf("expected 2 reference rates, got %d", len(result))
-	}
-	for _, r := range result {
-		if r.RateType != "reference" {
-			t.Errorf("expected rate_type 'reference', got '%s'", r.RateType)
-		}
-	}
-}
-
-func TestGetCurrentRates_EmptyResult(t *testing.T) {
-	scraper := &mockScraper{}
-	repo := &mockRepository{rates: []domain.Rate{}}
-
-	uc := NewRateUsecase(repo, scraper)
-
-	result, err := uc.GetCurrentRates(context.Background(), "XYZ", "")
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result == nil {
-		t.Error("expected empty slice, got nil")
-	}
-	if len(result) != 0 {
-		t.Errorf("expected 0 rates, got %d", len(result))
+	_, err := uc.GetLatestRate(context.Background(), "EUR")
+	if err == nil {
+		t.Fatal("expected error, got nil")
 	}
 }
 
 // --- GetHistoryRates tests ---
 
-func TestGetHistoryRates_Delegation(t *testing.T) {
+func TestGetHistoryRates_Success(t *testing.T) {
 	now := time.Now()
 	rates := []domain.Rate{
-		{Currency: "USD", RateType: "buy", Value: 35.0, ScrapedAt: now},
+		{Currency: "USD", Value: 35.0, ScrapedAt: now},
 	}
 
 	scraper := &mockScraper{}
@@ -193,7 +158,7 @@ func TestGetHistoryRates_Delegation(t *testing.T) {
 
 	uc := NewRateUsecase(repo, scraper)
 
-	result, err := uc.GetHistoryRates(context.Background(), "USD", "buy", "2026-01-01", "2026-07-01", 50)
+	result, err := uc.GetHistoryRates(context.Background(), "USD", "2026-01-01", "2026-07-01", 50)
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -201,18 +166,18 @@ func TestGetHistoryRates_Delegation(t *testing.T) {
 	if len(result) != 1 {
 		t.Errorf("expected 1 rate, got %d", len(result))
 	}
-	if result[0].RateType != "buy" {
-		t.Errorf("expected rate_type 'buy', got '%s'", result[0].RateType)
+	if result[0].Value != 35.0 {
+		t.Errorf("expected value 35.0, got %f", result[0].Value)
 	}
 }
 
-func TestGetHistoryRates_RepoError(t *testing.T) {
+func TestGetHistoryRates_Error(t *testing.T) {
 	scraper := &mockScraper{}
-	repo := &mockRepository{historyErr: domain.ErrNotFound}
+	repo := &mockRepository{historyErr: domain.ErrDatabase}
 
 	uc := NewRateUsecase(repo, scraper)
 
-	result, err := uc.GetHistoryRates(context.Background(), "USD", "buy", "2026-01-01", "2026-07-01", 50)
+	result, err := uc.GetHistoryRates(context.Background(), "USD", "2026-01-01", "2026-07-01", 50)
 
 	if err == nil {
 		t.Fatal("expected error, got nil")
