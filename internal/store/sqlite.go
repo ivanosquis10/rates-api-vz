@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/ivanosquis10/api-rates-venezuela/internal/domain"
@@ -155,6 +156,9 @@ func (s *Store) GetLatestRate(ctx context.Context, currency string) (domain.Rate
 		 LIMIT 1`,
 		currency).Scan(&r.ID, &r.Currency, &r.Value, &r.ScrapedAt)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return domain.Rate{}, domain.ErrNotFound
+		}
 		return domain.Rate{}, err
 	}
 	return r, nil

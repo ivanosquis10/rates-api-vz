@@ -1,10 +1,12 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
 	"github.com/ivanosquis10/api-rates-venezuela/internal/apierrors"
+	"github.com/ivanosquis10/api-rates-venezuela/internal/domain"
 	"github.com/ivanosquis10/api-rates-venezuela/internal/presenter"
 )
 
@@ -12,6 +14,10 @@ import (
 func (h *Handler) GetUSD(w http.ResponseWriter, r *http.Request) {
 	rate, err := h.uc.GetLatestRate(r.Context(), "USD")
 	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			presenter.OK(w, r, []presenter.RateResponse{})
+			return
+		}
 		presenter.Error(w, r, err)
 		return
 	}
@@ -34,6 +40,10 @@ func (h *Handler) GetOfficialUSD(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) GetEUR(w http.ResponseWriter, r *http.Request) {
 	rate, err := h.uc.GetLatestRate(r.Context(), "EUR")
 	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			presenter.OK(w, r, []presenter.RateResponse{})
+			return
+		}
 		presenter.Error(w, r, err)
 		return
 	}

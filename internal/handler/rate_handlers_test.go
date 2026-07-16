@@ -358,7 +358,7 @@ func TestVerification_ResponseEnvelopeConsistency(t *testing.T) {
 	router.Use(chimw.RequestID)
 	router.Use(middleware.Recovery)
 	router.Get("/dollars", h.GetUSD)
-	router.Get("/euros", h.GetEUR)
+	router.Get("/euros/official", h.GetOfficialEUR)
 
 	// Test Success
 	req1 := httptest.NewRequest(http.MethodGet, "/dollars", nil)
@@ -374,7 +374,7 @@ func TestVerification_ResponseEnvelopeConsistency(t *testing.T) {
 	}
 
 	// Test Error
-	req2 := httptest.NewRequest(http.MethodGet, "/euros", nil)
+	req2 := httptest.NewRequest(http.MethodGet, "/euros/official", nil)
 	w2 := httptest.NewRecorder()
 	router.ServeHTTP(w2, req2)
 
