@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Architecture review — venezuela-rates-api</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module">
+      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+      mermaid.initialize({ startOnLoad: true, theme: "neutral", securityLevel: "loose" });
+    </script>
+    <style>
+      .seam { stroke-dasharray: 4 4; }
+      .leak { stroke: #dc2626; }
+      .deep { background: linear-gradient(135deg, #0f172a, #1e293b); }
+      .card-hover { transition: box-shadow 0.2s ease; }
+      .card-hover:hover { box-shadow: 0 8px 30px rgba(0,0,0,0.08); }
+    </style>
+  </head>
+  <body class="bg-stone-50 text-slate-900 font-sans">
+    <main class="max-w-5xl mx-auto px-6 py-12 space-y-12">
+
+      <!-- Header -->
+      <header class="space-y-2">
+        <h1 class="text-3xl font-serif font-bold text-slate-800">Architecture Review</h1>
+        <p class="text-sm text-slate-500">venezuela-rates-api &middot; July 2026</p>
+        <div class="flex gap-4 text-xs text-slate-400 mt-2">
+          <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded border border-slate-300 bg-slate-100"></span> module</span>
+          <span class="flex items-center gap-1"><span class="inline-block w-6 border-t-2 border-dashed border-slate-400"></span> seam</span>
+          <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded border-2 border-red-500"></span> leakage</span>
+          <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded deep"></span> deep module</span>
+        </div>
+      </header>
+
+      <!-- Candidates -->
+      <section id="candidates" class="space-y-10">
+
+        <!-- Candidate 1: Handler Deduplication -->
+        <article class="rounded-xl border border-slate-200 bg-white p-6 card-hover space-y-5">
+          <div class="flex items-start justify-between">
+            <h2 class="text-xl font-serif font-bold text-slate-800">Collapse the USD/EUR handler pairs into a single parameterized handler</h2>
+            <div class="flex gap-2">
+              <span class="text-xs font-semibold px-2 py-1 rounded-full bg-emerald-100 text-emerald-700">Strong</span>
+              <span class="text-xs font-semibold px-2 py-1 rounded-full bg-slate-100 text-slate-600">in-process</span>
+            </div>
+          </div>
+
+          <div class="font-mono text-sm text-slate-600 bg-slate-50 rounded-lg px-4 py-2">
+            internal/handler/rate_handlers.go &middot; internal/handler/rate_handlers_test.go
+          </div>
+
+          <!-- Before / After Diagram -->
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-2 font-semibold">Before</p>
+              <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <pre class="mermaid">
+                  flowchart TD
+                    A["GetUSD()"] --> B["usecase.GetLatestRate('USD')"]
+                    C["GetEUR()"] --> D["usecase.GetLatestRate('EUR')"]
+                    E["GetOfficialUSD()"] --> F["usecase.GetLatestRate('USD')"]
+                    G["GetOfficialEUR()"] --> H["usecase.GetLatestRate('EUR')"]
+                    I["GetUSDHistory()"] --> J["usecase.GetHistoryRates('USD')"]
+                    K["GetEURHistory()"] --> L["usecase.GetHistoryRates('EUR')"]
+                    classDef dup fill:#fef3c7,stroke:#f59e0b,stroke-width:1px
+                    class A,C,E,G,I,K dup
+                </pre>
+              </div>
+            </div>
+            <div>
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-2 font-semibold">After</p>
+              <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <pre class="mermaid">
+                  flowchart TD
+                    M["getLatest(currency)"] --> N["usecase.GetLatestRate(currency)"]
+                    O["getOfficial(currency)"] --> P["usecase.GetLatestRate(currency)"]
+                    Q["getHistory(currency)"] --> R["usecase.GetHistoryRates(currency)"]
+                    classDef deep fill:#0f172a,stroke:#334155,color:#e2e8f0
+                    class M,O,Q deep
+                </pre>
+              </div>
+            </div>
+          </div>
+
+          <p class="text-slate-700"><strong>Problem:</strong> 3 pairs of copy-paste handlers — <code>GetUSD</code>/<code>GetEUR</code>, <code>GetOfficialUSD</code>/<code>GetOfficialEUR</code>, <code>GetUSDHistory</code>/<code>GetEURHistory</code> — are identical except for the currency string. ~60 lines of pure duplication.</p>
+
+          <p class="text-slate-700"><strong>Solution:</strong> Extract a <code>getLatest(currency)</code>, <code>getOfficial(currency)</code>, and <code>getHistory(currency)</code> helper. Each handler becomes a one-liner that delegates with the currency argument.</p>
+
+          <ul class="text-sm text-slate-600 space-y-1">
+            <li>&#x2022; <strong class="text-emerald-700">locality:</strong> all rate-serving logic in one function per shape</li>
+            <li>&#x2022; <strong class="text-emerald-700">leverage:</strong> one fix applies to both currencies</li>
+            <li>&#x2022; <strong class="text-emerald-700">interface shrinks:</strong> 8 exported methods → 3 + helpers</li>
+          </ul>
+        </article>
+
+        <!-- Candidate 2: NotFound Asymmetry Bug -->
+        <article class="rounded-xl border border-slate-200 bg-white p-6 card-hover space-y-5">
+          <div class="flex items-start justify-between">
+            <h2 class="text-xl font-serif font-bold text-slate-800">Fix the NotFound asymmetry in Official endpoints</h2>
+            <div class="flex gap-2">
+              <span class="text-xs font-semibold px-2 py-1 rounded-full bg-emerald-100 text-emerald-700">Strong</span>
+              <span class="text-xs font-semibold px-2 py-1 rounded-full bg-red-100 text-red-600">bug</span>
+            </div>
+          </div>
+
+          <div class="font-mono text-sm text-slate-600 bg-slate-50 rounded-lg px-4 py-2">
+            internal/handler/rate_handlers.go:58-80
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-2 font-semibold">Before</p>
+              <div class="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-2 text-sm">
+                <div class="flex items-center gap-2">
+                  <span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 font-mono text-xs">GET /dollars</span>
+                  <span class="text-slate-400">→</span>
+                  <span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 font-mono text-xs">200 + []</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="px-2 py-0.5 rounded bg-amber-100 text-amber-700 font-mono text-xs">GET /dollars/official</span>
+                  <span class="text-slate-400">→</span>
+                  <span class="px-2 py-0.5 rounded bg-red-100 text-red-700 font-mono text-xs">500 Internal Server Error</span>
+                </div>
+                <p class="text-slate-500 text-xs mt-2">Same condition, different behavior. The Official endpoint passes <code>ErrNotFound</code> to <code>presenter.Error()</code> which maps it to 500.</p>
+              </div>
+            </div>
+            <div>
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-2 font-semibold">After</p>
+              <div class="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-2 text-sm">
+                <div class="flex items-center gap-2">
+                  <span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 font-mono text-xs">GET /dollars</span>
+                  <span class="text-slate-400">→</span>
+                  <span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 font-mono text-xs">200 + []</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 font-mono text-xs">GET /dollars/official</span>
+                  <span class="text-slate-400">→</span>
+                  <span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 font-mono text-xs">404 Not Found</span>
+                </div>
+                <p class="text-slate-500 text-xs mt-2">Both endpoints handle <code>ErrNotFound</code> consistently. Official returns 404; list returns empty array.</p>
+              </div>
+            </div>
+          </div>
+
+          <p class="text-slate-700"><strong>Problem:</strong> <code>GetOfficialUSD</code> and <code>GetOfficialEUR</code> don't handle <code>domain.ErrNotFound</code> — they pass it to <code>presenter.Error()</code> which returns 500 instead of 404.</p>
+
+          <p class="text-slate-700"><strong>Solution:</strong> Add the same <code>ErrNotFound</code> check that <code>GetUSD</code>/<code>GetEUR</code> already have, returning a 404 with a clear message.</p>
+
+          <ul class="text-sm text-slate-600 space-y-1">
+            <li>&#x2022; <strong class="text-emerald-700">locality:</strong> error handling lives in one place per endpoint shape</li>
+            <li>&#x2022; <strong class="text-emerald-700">leverage:</strong> fix once, both currencies covered</li>
+            <li>&#x2022; <strong class="text-emerald-700">contract:</strong> API consumers get predictable status codes</li>
+          </ul>
+        </article>
+
+        <!-- Candidate 3: Presenter God Function -->
+        <article class="rounded-xl border border-slate-200 bg-white p-6 card-hover space-y-5">
+          <div class="flex items-start justify-between">
+            <h2 class="text-xl font-serif font-bold text-slate-800">Split the Presenter.Error god function into classified mappers</h2>
+            <div class="flex gap-2">
+              <span class="text-xs font-semibold px-2 py-1 rounded-full bg-amber-100 text-amber-700">Worth exploring</span>
+              <span class="text-xs font-semibold px-2 py-1 rounded-full bg-slate-100 text-slate-600">in-process</span>
+            </div>
+          </div>
+
+          <div class="font-mono text-sm text-slate-600 bg-slate-50 rounded-lg px-4 py-2">
+            internal/presenter/presenter.go:86-176
+          </div>
+
+          <!-- Before / After: Cross-section -->
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-2 font-semibold">Before — one 90-line function</p>
+              <div class="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-1">
+                <div class="h-8 border-l-4 border-amber-400 bg-amber-50 flex items-center px-3 text-xs text-amber-700 font-mono">Error Classification</div>
+                <div class="h-8 border-l-4 border-amber-400 bg-amber-50 flex items-center px-3 text-xs text-amber-700 font-mono">HTTP Status Mapping</div>
+                <div class="h-12 border-l-4 border-red-400 bg-red-50 flex items-center px-3 text-xs text-red-700 font-mono">Timeout Detection (30 lines of string matching)</div>
+                <div class="h-8 border-l-4 border-amber-400 bg-amber-50 flex items-center px-3 text-xs text-amber-700 font-mono">Response Writing</div>
+                <p class="text-slate-500 text-xs mt-2">All tangled in one <code>Error()</code> function.</p>
+              </div>
+            </div>
+            <div>
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-2 font-semibold">After — split by concern</p>
+              <div class="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-1">
+                <div class="h-8 border-l-4 border-emerald-400 bg-emerald-50 flex items-center px-3 text-xs text-emerald-700 font-mono">classifyError(err) → Code + Status</div>
+                <div class="h-8 border-l-4 border-emerald-400 bg-emerald-50 flex items-center px-3 text-xs text-emerald-700 font-mono">isTimeout(err) → bool</div>
+                <div class="h-8 border-l-4 border-emerald-400 bg-emerald-50 flex items-center px-3 text-xs text-emerald-700 font-mono">writeError(w, r, code, msg)</div>
+                <div class="h-8 border-l-4 border-slate-300 bg-slate-100 flex items-center px-3 text-xs text-slate-600 font-mono">Error() — orchestrator, ~20 lines</div>
+                <p class="text-slate-500 text-xs mt-2">Each function has one job. Table-driven classification replaces nested conditionals.</p>
+              </div>
+            </div>
+          </div>
+
+          <p class="text-slate-700"><strong>Problem:</strong> <code>Error()</code> is 90 lines mixing error classification, timeout detection via string matching, HTTP status mapping, and response writing. Hard to test in isolation.</p>
+
+          <p class="text-slate-700"><strong>Solution:</strong> Extract <code>classifyError()</code> (table-driven), <code>isTimeout()</code>, and <code>writeError()</code>. <code>Error()</code> becomes a thin orchestrator.</p>
+
+          <ul class="text-sm text-slate-600 space-y-1">
+            <li>&#x2022; <strong class="text-emerald-700">locality:</strong> timeout logic in one testable function</li>
+            <li>&#x2022; <strong class="text-emerald-700">leverage:</strong> new error types added to table, not nested if-else</li>
+            <li>&#x2022; <strong class="text-emerald-700">interface shrinks:</strong> Error() becomes ~20 lines</li>
+          </ul>
+        </article>
+
+        <!-- Candidate 4: Scraper Cross-Seam Dependency -->
+        <article class="rounded-xl border border-slate-200 bg-white p-6 card-hover space-y-5">
+          <div class="flex items-start justify-between">
+            <h2 class="text-xl font-serif font-bold text-slate-800">Decouple the Scraper from apierrors — return domain errors</h2>
+            <div class="flex gap-2">
+              <span class="text-xs font-semibold px-2 py-1 rounded-full bg-amber-100 text-amber-700">Worth exploring</span>
+              <span class="text-xs font-semibold px-2 py-1 rounded-full bg-slate-100 text-slate-600">ports &amp; adapters</span>
+            </div>
+          </div>
+
+          <div class="font-mono text-sm text-slate-600 bg-slate-50 rounded-lg px-4 py-2">
+            internal/scraper/scraper.go:12 &middot; internal/scraper/scraper.go:95-100
+          </div>
+
+          <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <pre class="mermaid">
+              flowchart LR
+                subgraph Before
+                  S1["Scraper"] -.leak.-> A1["apierrors.ProviderError"]
+                end
+                subgraph After
+                  S2["Scraper"] --> D2["domain.ErrProviderUnavailable"]
+                  D2 -.-> U2["Usecase"]
+                  U2 -.-> P2["Presenter maps to apierrors"]
+                end
+                classDef leak stroke:#dc2626,stroke-width:2px
+                class S1,A1 leak
+                classDef deep fill:#0f172a,stroke:#334155,color:#e2e8f0
+                class S2,D2,U2,P2 deep
+            </pre>
+          </div>
+
+          <p class="text-slate-700"><strong>Problem:</strong> The scraper imports <code>apierrors</code> to wrap errors with <code>NewProviderError()</code>. This leaks the HTTP concern into the scraping adapter — a port should only know about domain types.</p>
+
+          <p class="text-slate-700"><strong>Solution:</strong> Add <code>domain.ErrProviderUnavailable</code> sentinel. Scraper returns domain errors. The presenter (or usecase) maps them to <code>apierrors.ProviderError</code>.</p>
+
+          <ul class="text-sm text-slate-600 space-y-1">
+            <li>&#x2022; <strong class="text-emerald-700">seam:</strong> scraper only depends on domain — proper port direction</li>
+            <li>&#x2022; <strong class="text-emerald-700">leverage:</strong> presenter maps once, all callers benefit</li>
+            <li>&#x2022; <strong class="text-emerald-700">testability:</strong> scraper test assertions check domain errors, not API shapes</li>
+          </ul>
+
+          <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">
+            &#x26A0; Does not contradict ADR-0001, but the current design was accepted as-is. This is a natural deepening.
+          </div>
+        </article>
+
+        <!-- Candidate 5: Presenter → Domain Cross-Seam -->
+        <article class="rounded-xl border border-slate-200 bg-white p-6 card-hover space-y-5">
+          <div class="flex items-start justify-between">
+            <h2 class="text-xl font-serif font-bold text-slate-800">Remove the Presenter's direct dependency on domain errors</h2>
+            <div class="flex gap-2">
+              <span class="text-xs font-semibold px-2 py-1 rounded-full bg-amber-100 text-amber-700">Worth exploring</span>
+              <span class="text-xs font-semibold px-2 py-1 rounded-full bg-slate-100 text-slate-600">ports &amp; adapters</span>
+            </div>
+          </div>
+
+          <div class="font-mono text-sm text-slate-600 bg-slate-50 rounded-lg px-4 py-2">
+            internal/presenter/presenter.go:86-176
+          </div>
+
+          <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <pre class="mermaid">
+              flowchart LR
+                P["Presenter"] -.leak.-> D["domain.ErrNotFound"]
+                P -.leak.-> D2["domain.ErrInvalidInput"]
+                P -.leak.-> D3["domain.ErrDuplicateRate"]
+                classDef leak stroke:#dc2626,stroke-width:2px
+                class D,D2,D3 leak
+            </pre>
+          </div>
+
+          <p class="text-slate-700"><strong>Problem:</strong> The presenter checks for <code>domain.ErrNotFound</code>, <code>domain.ErrInvalidInput</code>, and <code>domain.ErrDuplicateRate</code> directly. In hexagonal architecture, the presenter is an outbound adapter — it should only know about <code>apierrors.Error</code> types, not domain sentinels.</p>
+
+          <p class="text-slate-700"><strong>Solution:</strong> Map domain errors to <code>apierrors.Error</code> in the usecase layer (or a dedicated error-mapping adapter). The presenter receives only <code>apierrors.Error</code> and maps to HTTP status. Combine with Candidate 4 for a clean error flow: <code>domain → apierrors → presenter</code>.</p>
+
+          <ul class="text-sm text-slate-600 space-y-1">
+            <li>&#x2022; <strong class="text-emerald-700">seam:</strong> presenter depends only on apierrors, not domain</li>
+            <li>&#x2022; <strong class="text-emerald-700">leverage:</strong> domain errors can change without touching presenter</li>
+            <li>&#x2022; <strong class="text-emerald-700">testability:</strong> presenter tests use apierrors only</li>
+          </ul>
+        </article>
+
+        <!-- Candidate 6: Health Endpoint Auth -->
+        <article class="rounded-xl border border-slate-200 bg-white p-6 card-hover space-y-5">
+          <div class="flex items-start justify-between">
+            <h2 class="text-xl font-serif font-bold text-slate-800">Exclude /health from auth middleware</h2>
+            <div class="flex gap-2">
+              <span class="text-xs font-semibold px-2 py-1 rounded-full bg-slate-200 text-slate-600">Speculative</span>
+              <span class="text-xs font-semibold px-2 py-1 rounded-full bg-slate-100 text-slate-600">in-process</span>
+            </div>
+          </div>
+
+          <div class="font-mono text-sm text-slate-600 bg-slate-50 rounded-lg px-4 py-2">
+            internal/http/router/router.go:35
+          </div>
+
+          <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <pre class="mermaid">
+              flowchart LR
+                LB["Load Balancer"] -->|GET /health| R["Router"]
+                R -->|"auth (API key required)"| A["Auth Middleware"]
+                A -->|"401 ❌"| LB
+                classDef leak stroke:#dc2626,stroke-width:2px
+                class A leak
+            </pre>
+          </div>
+
+          <p class="text-slate-700"><strong>Problem:</strong> The auth middleware is applied globally. <code>/api/v1/health</code> requires an API key. Load balancer probes and uptime monitors typically hit health endpoints without credentials.</p>
+
+          <p class="text-slate-700"><strong>Solution:</strong> Skip auth for <code>/health</code> by checking the request path in the auth middleware, or apply auth selectively to rate endpoints only.</p>
+
+          <ul class="text-sm text-slate-600 space-y-1">
+            <li>&#x2022; <strong class="text-emerald-700">locality:</strong> health check logic stays in one place</li>
+            <li>&#x2022; <strong class="text-emerald-700">leverage:</strong> LB probes work without credential management</li>
+          </ul>
+        </article>
+
+      </section>
+
+      <!-- Top Recommendation -->
+      <section id="top-recommendation" class="rounded-xl border-2 border-emerald-300 bg-emerald-50 p-6 space-y-3">
+        <h2 class="text-xl font-serif font-bold text-emerald-800">Top recommendation</h2>
+        <p class="text-slate-700">
+          <strong>Collapse the USD/EUR handler pairs</strong> (Candidate 1) + <strong>fix the NotFound asymmetry</strong> (Candidate 2). These two are tightly related — both live in <code>rate_handlers.go</code>, both are about parameterizing by currency, and the NotFound fix naturally falls out of the deduplication. This is the highest-leverage change: it removes ~60 lines of duplication, fixes a real bug, and makes the handler module <strong>deep</strong> — one interface, one place to test, both currencies covered.
+        </p>
+        <p class="text-sm text-slate-500">
+          After that, tackle the error flow candidates (3, 4, 5) as a group — they form a clean chain: <strong>scraper → domain errors → usecase maps to apierrors → presenter classifies</strong>.
+        </p>
+        <a href="#candidates" class="inline-block text-sm text-emerald-700 underline">↑ Back to candidates</a>
+      </section>
+
+    </main>
+  </body>
+</html>
