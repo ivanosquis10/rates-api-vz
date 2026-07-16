@@ -64,6 +64,10 @@ func main() {
 	sched := scheduler.NewScheduler(uc, cfg.ScrapeHour)
 	sched.Start(ctx)
 
+	// Run initial scrape in background to avoid blocking server startup.
+	// The database is already initialized at this point (store.New handles migrations).
+	go sched.RunNow(ctx)
+
 	rl := middleware.NewRateLimiter(ctx, cfg.RateLimit)
 
 	// Build router engine

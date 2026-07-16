@@ -58,6 +58,14 @@ func (s *Scheduler) Start(ctx context.Context) {
 	slog.Info("scheduler started", "scrape_hour", s.scrapeHour, "timezone", loc.String())
 }
 
+// RunNow executes an immediate scrape with retry, reusing the existing
+// backoff logic. It does not block the scheduler lifecycle.
+func (s *Scheduler) RunNow(ctx context.Context) {
+	slog.Info("running initial scrape at startup")
+	s.executeWithRetry(ctx)
+	slog.Info("initial scrape completed")
+}
+
 // Stop stops the scheduler and returns a context that is closed when running jobs finish.
 func (s *Scheduler) Stop() context.Context {
 	if s.cron != nil {
