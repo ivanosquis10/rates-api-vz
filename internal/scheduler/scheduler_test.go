@@ -143,7 +143,7 @@ func TestRunNow_CallsScrapeRates(t *testing.T) {
 			}, nil
 		},
 	}
-	sched := NewScheduler(mu, 8)
+	sched := NewScheduler(mu, "0 8 * * *", "*/5 8-18 * * 1-5")
 	sched.backoffDelays = []time.Duration{
 		1 * time.Millisecond,
 		2 * time.Millisecond,
@@ -163,7 +163,7 @@ func TestRunNow_ReturnsOnFailure(t *testing.T) {
 			return nil, errors.New("scrape failed")
 		},
 	}
-	sched := NewScheduler(mu, 8)
+	sched := NewScheduler(mu, "0 8 * * *", "*/5 8-18 * * 1-5")
 	sched.backoffDelays = []time.Duration{
 		1 * time.Millisecond,
 		2 * time.Millisecond,
@@ -190,7 +190,7 @@ func TestRunNow_RespectsContextCancel(t *testing.T) {
 			return nil, errors.New("scrape failed")
 		},
 	}
-	sched := NewScheduler(mu, 8)
+	sched := NewScheduler(mu, "0 8 * * *", "*/5 8-18 * * 1-5")
 	sched.backoffDelays = []time.Duration{
 		10 * time.Second,
 		10 * time.Second,
