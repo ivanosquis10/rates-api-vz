@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.4.0](https://github.com/ivanosquis10/api-rates-venezuela/compare/v1.3.0...v1.4.0) (2026-07-16)
+
+
+### Features
+
+* run initial scrape at startup before first cron tick ([df01172](https://github.com/ivanosquis10/api-rates-venezuela/commit/df01172fb25fb178c7fa39f6ef316f9ac679d441))
+* scraping inicial al iniciar la aplicacion ([edfb8b8](https://github.com/ivanosquis10/api-rates-venezuela/commit/edfb8b81d8d920848291651c3decbacd9011b1f2))
+
+
+### Bug Fixes
+
+* update RunNow tests for new NewScheduler signature ([e7741b9](https://github.com/ivanosquis10/api-rates-venezuela/commit/e7741b9b77df7ce41063fe9c09fc64305ba3673f))
+
 ## [1.3.0](https://github.com/ivanosquis10/api-rates-venezuela/compare/v1.2.1...v1.3.0) (2026-07-16)
 
 
