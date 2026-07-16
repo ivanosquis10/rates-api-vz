@@ -15,18 +15,20 @@ var (
 
 // Config holds application configuration loaded from environment variables.
 type Config struct {
-	APIKey     string // Required: API key for authentication
-	Port       int    // Server port (default: 8080)
-	DBPath     string // SQLite database path (default: ./rates.db)
-	ScrapeHour int    // Hour to run daily scraping, 0-23 (default: 8)
-	RateLimit  int    // Max requests per minute per IP (default: 60)
+	APIKey                string // Required: API key for authentication
+	Port                  int    // Server port (default: 8080)
+	DBPath                string // SQLite database path (default: ./rates.db)
+	ScrapeCronMaintenance string // Cron expression for main scrape job (default: "0 8 * * *")
+	ScrapeCronWindow      string // Cron expression for window scrape job (default: "*/5 8-18 * * 1-5")
+	RateLimit             int    // Max requests per minute per IP (default: 60)
 }
 
 const (
-	defaultPort       = 8080
-	defaultDBPath     = "./rates.db"
-	defaultScrapeHour = 8
-	defaultRateLimit  = 60
+	defaultPort                   = 8080
+	defaultDBPath                 = "./rates.db"
+	defaultScrapeCronMaintenance = "0 8 * * *"
+	defaultScrapeCronWindow      = "*/5 8-18 * * 1-5"
+	defaultRateLimit              = 60
 )
 
 // Load reads configuration from environment variables.
@@ -44,15 +46,17 @@ func Load() (*Config, error) {
 
 	port := getEnvInt("PORT", defaultPort)
 	dbPath := getEnvString("DB_PATH", defaultDBPath)
-	scrapeHour := getEnvInt("SCRAPE_HOUR", defaultScrapeHour)
+	scrapeCronMaintenance := getEnvString("SCRAPE_CRON_MAINTENANCE", defaultScrapeCronMaintenance)
+	scrapeCronWindow := getEnvString("SCRAPE_CRON_WINDOW", defaultScrapeCronWindow)
 	rateLimit := getEnvInt("RATE_LIMIT", defaultRateLimit)
 
 	return &Config{
-		APIKey:     apiKey,
-		Port:       port,
-		DBPath:     dbPath,
-		ScrapeHour: scrapeHour,
-		RateLimit:  rateLimit,
+		APIKey:                apiKey,
+		Port:                  port,
+		DBPath:                dbPath,
+		ScrapeCronMaintenance: scrapeCronMaintenance,
+		ScrapeCronWindow:      scrapeCronWindow,
+		RateLimit:             rateLimit,
 	}, nil
 }
 

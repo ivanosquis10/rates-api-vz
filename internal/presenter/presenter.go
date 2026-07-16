@@ -7,11 +7,36 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/ivanosquis10/api-rates-venezuela/internal/apierrors"
 	"github.com/ivanosquis10/api-rates-venezuela/internal/domain"
 	"github.com/ivanosquis10/api-rates-venezuela/internal/http/httpx"
 )
+
+type RateResponse struct {
+	ID        int64     `json:"id"`
+	Currency  string    `json:"currency"`
+	Average   float64   `json:"average"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+func MapToRateResponse(r domain.Rate) RateResponse {
+	return RateResponse{
+		ID:        r.ID,
+		Currency:  r.Currency,
+		Average:   r.Value,
+		UpdatedAt: r.ScrapedAt,
+	}
+}
+
+func MapToRateResponses(rates []domain.Rate) []RateResponse {
+	res := make([]RateResponse, len(rates))
+	for i, r := range rates {
+		res[i] = MapToRateResponse(r)
+	}
+	return res
+}
 
 type ResponseEnvelope struct {
 	Success bool            `json:"success"`

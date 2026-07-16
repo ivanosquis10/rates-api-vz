@@ -2,7 +2,6 @@ package scheduler
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"time"
 	_ "time/tzdata"
@@ -16,19 +15,21 @@ type RateScraperUsecase interface {
 	ScrapeRates(ctx context.Context) ([]domain.Rate, error)
 }
 
-// Scheduler manages the daily cron job for scraping exchange rates.
+// Scheduler manages the cron jobs for scraping exchange rates.
 type Scheduler struct {
-	cron          *cron.Cron
-	usecase       RateScraperUsecase
-	scrapeHour    int
-	backoffDelays []time.Duration
+	cron            *cron.Cron
+	usecase         RateScraperUsecase
+	maintenanceCron string
+	windowCron      string
+	backoffDelays   []time.Duration
 }
 
-// NewScheduler creates a Scheduler with the given usecase and scrape hour.
-func NewScheduler(uc RateScraperUsecase, scrapeHour int) *Scheduler {
+// NewScheduler creates a Scheduler with the given usecase and cron expressions.
+func NewScheduler(uc RateScraperUsecase, maintenanceCron, windowCron string) *Scheduler {
 	return &Scheduler{
-		usecase:    uc,
-		scrapeHour: scrapeHour,
+		usecase:         uc,
+		maintenanceCron: maintenanceCron,
+		windowCron:      windowCron,
 		backoffDelays: []time.Duration{
 			1 * time.Minute,
 			2 * time.Minute,
@@ -37,7 +38,7 @@ func NewScheduler(uc RateScraperUsecase, scrapeHour int) *Scheduler {
 	}
 }
 
-// Start starts the daily cron job using the America/Caracas timezone.
+// Start starts the daily and window cron jobs using the America/Caracas timezone.
 func (s *Scheduler) Start(ctx context.Context) {
 	loc, err := time.LoadLocation("America/Caracas")
 	if err != nil {
@@ -46,16 +47,25 @@ func (s *Scheduler) Start(ctx context.Context) {
 	}
 
 	s.cron = cron.New(cron.WithLocation(loc))
-	cronExpr := fmt.Sprintf("0 %d * * *", s.scrapeHour)
-	_, err = s.cron.AddFunc(cronExpr, func() {
+
+	// Register maintenance cron job
+	_, err = s.cron.AddFunc(s.maintenanceCron, func() {
 		s.executeWithRetry(ctx)
 	})
 	if err != nil {
-		slog.Error("failed to register daily scraping cron job", "expr", cronExpr, "error", err)
+		slog.Error("failed to register maintenance scraping cron job", "expr", s.maintenanceCron, "error", err)
+	}
+
+	// Register window cron job
+	_, err = s.cron.AddFunc(s.windowCron, func() {
+		s.executeWithRetry(ctx)
+	})
+	if err != nil {
+		slog.Error("failed to register window scraping cron job", "expr", s.windowCron, "error", err)
 	}
 
 	s.cron.Start()
-	slog.Info("scheduler started", "scrape_hour", s.scrapeHour, "timezone", loc.String())
+	slog.Info("scheduler started", "maintenance_cron", s.maintenanceCron, "window_cron", s.windowCron, "timezone", loc.String())
 }
 
 // Stop stops the scheduler and returns a context that is closed when running jobs finish.

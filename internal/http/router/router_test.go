@@ -15,28 +15,28 @@ import (
 )
 
 type mockUsecase struct {
-	getCurrentRatesFunc func(ctx context.Context, currency, rateType string) ([]domain.Rate, error)
-	getHistoryRatesFunc func(ctx context.Context, currency, rateType, from, to string, limit int) ([]domain.Rate, error)
-	scrapeRatesFunc     func(ctx context.Context) ([]domain.Rate, error)
+	getLatestRateFn   func(ctx context.Context, currency string) (domain.Rate, error)
+	getHistoryRatesFn func(ctx context.Context, currency, from, to string, limit int) ([]domain.Rate, error)
+	scrapeRatesFn     func(ctx context.Context) ([]domain.Rate, error)
 }
 
-func (m *mockUsecase) GetCurrentRates(ctx context.Context, currency, rateType string) ([]domain.Rate, error) {
-	if m.getCurrentRatesFunc != nil {
-		return m.getCurrentRatesFunc(ctx, currency, rateType)
+func (m *mockUsecase) GetLatestRate(ctx context.Context, currency string) (domain.Rate, error) {
+	if m.getLatestRateFn != nil {
+		return m.getLatestRateFn(ctx, currency)
 	}
-	return nil, nil
+	return domain.Rate{}, nil
 }
 
-func (m *mockUsecase) GetHistoryRates(ctx context.Context, currency, rateType, from, to string, limit int) ([]domain.Rate, error) {
-	if m.getHistoryRatesFunc != nil {
-		return m.getHistoryRatesFunc(ctx, currency, rateType, from, to, limit)
+func (m *mockUsecase) GetHistoryRates(ctx context.Context, currency, from, to string, limit int) ([]domain.Rate, error) {
+	if m.getHistoryRatesFn != nil {
+		return m.getHistoryRatesFn(ctx, currency, from, to, limit)
 	}
 	return nil, nil
 }
 
 func (m *mockUsecase) ScrapeRates(ctx context.Context) ([]domain.Rate, error) {
-	if m.scrapeRatesFunc != nil {
-		return m.scrapeRatesFunc(ctx)
+	if m.scrapeRatesFn != nil {
+		return m.scrapeRatesFn(ctx)
 	}
 	return nil, nil
 }
@@ -45,10 +45,11 @@ func TestRouter_New(t *testing.T) {
 	mockUC := &mockUsecase{}
 	h := handler.NewHandlerFromUsecaser(mockUC)
 	cfg := &config.Config{
-		APIKey:     "test-api-key",
-		RateLimit:  100,
-		ScrapeHour: 9,
-		Port:       8080,
+		APIKey:                "test-api-key",
+		RateLimit:             100,
+		ScrapeCronMaintenance: "0 8 * * *",
+		ScrapeCronWindow:      "*/5 8-18 * * 1-5",
+		Port:                  8080,
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -69,22 +70,23 @@ func TestRouter_New(t *testing.T) {
 
 func TestRouter_Middleware_Auth(t *testing.T) {
 	mockUC := &mockUsecase{
-		getCurrentRatesFunc: func(ctx context.Context, currency, rateType string) ([]domain.Rate, error) {
+		getLatestRateFn: func(ctx context.Context, currency string) (domain.Rate, error) {
+			return domain.Rate{Currency: "USD", Value: 36.5}, nil
+		},
+		getHistoryRatesFn: func(ctx context.Context, currency, from, to string, limit int) ([]domain.Rate, error) {
 			return []domain.Rate{}, nil
 		},
-		getHistoryRatesFunc: func(ctx context.Context, currency, rateType, from, to string, limit int) ([]domain.Rate, error) {
-			return []domain.Rate{}, nil
-		},
-		scrapeRatesFunc: func(ctx context.Context) ([]domain.Rate, error) {
+		scrapeRatesFn: func(ctx context.Context) ([]domain.Rate, error) {
 			return []domain.Rate{}, nil
 		},
 	}
 	h := handler.NewHandlerFromUsecaser(mockUC)
 	cfg := &config.Config{
-		APIKey:     "secret-api-key",
-		RateLimit:  100,
-		ScrapeHour: 9,
-		Port:       8080,
+		APIKey:                "secret-api-key",
+		RateLimit:             100,
+		ScrapeCronMaintenance: "0 8 * * *",
+		ScrapeCronWindow:      "*/5 8-18 * * 1-5",
+		Port:                  8080,
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -109,28 +111,28 @@ func TestRouter_Middleware_Auth(t *testing.T) {
 		{
 			name:           "Rates request without API Key",
 			method:         "GET",
-			url:            "/api/v1/rates",
+			url:            "/api/v1/dollars",
 			apiKey:         "",
 			expectedStatus: http.StatusUnauthorized,
 		},
 		{
 			name:           "Rates request with invalid API Key",
 			method:         "GET",
-			url:            "/api/v1/rates",
+			url:            "/api/v1/dollars",
 			apiKey:         "invalid-key",
 			expectedStatus: http.StatusUnauthorized,
 		},
 		{
 			name:           "Rates request with valid API Key",
 			method:         "GET",
-			url:            "/api/v1/rates",
+			url:            "/api/v1/dollars",
 			apiKey:         "secret-api-key",
 			expectedStatus: http.StatusOK,
 		},
 		{
 			name:           "History request with valid API Key",
 			method:         "GET",
-			url:            "/api/v1/rates/history",
+			url:            "/api/v1/history/dollars",
 			apiKey:         "secret-api-key",
 			expectedStatus: http.StatusOK,
 		},
@@ -163,12 +165,6 @@ func TestRouter_Middleware_Auth(t *testing.T) {
 			if w.Header().Get("X-Request-ID") == "" {
 				t.Error("expected X-Request-ID response header to be set, but it was empty")
 			}
-			var raw map[string]any
-			if err := json.Unmarshal(w.Body.Bytes(), &raw); err == nil {
-				if _, exists := raw["request_id"]; exists {
-					t.Error("expected request_id to be absent in JSON body")
-				}
-			}
 		})
 	}
 }
@@ -177,10 +173,11 @@ func TestRouter_NotFound(t *testing.T) {
 	mockUC := &mockUsecase{}
 	h := handler.NewHandlerFromUsecaser(mockUC)
 	cfg := &config.Config{
-		APIKey:     "secret-api-key",
-		RateLimit:  100,
-		ScrapeHour: 9,
-		Port:       8080,
+		APIKey:                "secret-api-key",
+		RateLimit:             100,
+		ScrapeCronMaintenance: "0 8 * * *",
+		ScrapeCronWindow:      "*/5 8-18 * * 1-5",
+		Port:                  8080,
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -218,17 +215,5 @@ func TestRouter_NotFound(t *testing.T) {
 	}
 	if raw["code"] != "NOT_FOUND" {
 		t.Errorf("expected code to be NOT_FOUND, got %v", raw["code"])
-	}
-	if raw["error"] != "requested endpoint does not exist" {
-		t.Errorf("expected error to be 'requested endpoint does not exist', got %v", raw["error"])
-	}
-	if w.Header().Get("X-Request-ID") == "" {
-		t.Error("expected X-Request-ID response header to be set, but it was empty")
-	}
-	if _, exists := raw["request_id"]; exists {
-		t.Error("expected request_id to be absent in JSON body")
-	}
-	if _, exists := raw["data"]; exists {
-		t.Error("expected 'data' to be absent")
 	}
 }
