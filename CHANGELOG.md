@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.5.3](https://github.com/ivanosquis10/rates-api-vz/compare/v1.5.2...v1.5.3) (2026-07-27)
+
+
+### Bug Fixes
+
+* **store:** store scraped_at as unix timestamp for modernc/sqlite compatibility ([d5f46d4](https://github.com/ivanosquis10/rates-api-vz/commit/d5f46d4dbbc05d91a0f679063a6b9d0081e6af80))
+* **store:** store scraped_at as unix timestamp to fix modernc/sqlite scan error ([e88619e](https://github.com/ivanosquis10/rates-api-vz/commit/e88619e64b7c9d9101215f97a0652e2ab46ee943))
+
 ## [1.5.2](https://github.com/ivanosquis10/rates-api-vz/compare/v1.5.1...v1.5.2) (2026-07-27)
 
 
