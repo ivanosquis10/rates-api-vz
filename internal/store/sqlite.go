@@ -5,7 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"strings"
+	"strconv"
+	"time"
 
 	"github.com/ivanosquis10/api-rates-venezuela/internal/domain"
 	_ "modernc.org/sqlite"
@@ -19,16 +20,7 @@ func New(dbPath string) (*sql.DB, error) {
 		return nil, fmt.Errorf("database path must not be empty")
 	}
 
-	dsn := dbPath
-	if !strings.Contains(dsn, "_pragma=parse_time") && !strings.Contains(dsn, "parse_time=") {
-		if strings.Contains(dsn, "?") {
-			dsn += "&_pragma=parse_time(1)"
-		} else {
-			dsn += "?_pragma=parse_time(1)"
-		}
-	}
-
-	db, err := sql.Open("sqlite", dsn)
+	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
@@ -78,7 +70,7 @@ func migrate(db *sql.DB) error {
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		currency TEXT NOT NULL,
 		value REAL NOT NULL,
-		scraped_at DATETIME NOT NULL,
+		scraped_at INTEGER NOT NULL,
 		UNIQUE(currency, scraped_at)
 	);
 
@@ -110,7 +102,7 @@ func insertRate(db *sql.DB, r domain.Rate) error {
 	_, err := db.Exec(
 		`INSERT OR REPLACE INTO rates (currency, value, scraped_at)
 		 VALUES (?, ?, ?)`,
-		r.Currency, r.Value, r.ScrapedAt,
+		r.Currency, r.Value, r.ScrapedAt.Unix(),
 	)
 	return err
 }
@@ -138,8 +130,9 @@ func (s *Store) SaveRates(ctx context.Context, rates []domain.Rate) error {
 	defer insertStmt.Close()
 
 	for _, r := range rates {
+		ts := r.ScrapedAt.Unix()
 		var exists int
-		err := checkStmt.QueryRowContext(ctx, r.Currency, r.ScrapedAt).Scan(&exists)
+		err := checkStmt.QueryRowContext(ctx, r.Currency, ts).Scan(&exists)
 		if err == nil {
 			// Already exists, skip
 			continue
@@ -147,7 +140,7 @@ func (s *Store) SaveRates(ctx context.Context, rates []domain.Rate) error {
 			return fmt.Errorf("check rate existence: %w", err)
 		}
 
-		if _, err := insertStmt.ExecContext(ctx, r.Currency, r.Value, r.ScrapedAt); err != nil {
+		if _, err := insertStmt.ExecContext(ctx, r.Currency, r.Value, ts); err != nil {
 			return fmt.Errorf("insert rate: %w", err)
 		}
 	}
@@ -158,19 +151,21 @@ func (s *Store) SaveRates(ctx context.Context, rates []domain.Rate) error {
 // GetLatestRate returns the most recent rate for the given currency.
 func (s *Store) GetLatestRate(ctx context.Context, currency string) (domain.Rate, error) {
 	var r domain.Rate
+	var scrapedAt int64
 	err := s.db.QueryRowContext(ctx,
 		`SELECT id, currency, value, scraped_at
 		 FROM rates
 		 WHERE currency = ?
 		 ORDER BY scraped_at DESC
 		 LIMIT 1`,
-		currency).Scan(&r.ID, &r.Currency, &r.Value, &r.ScrapedAt)
+		currency).Scan(&r.ID, &r.Currency, &r.Value, &scrapedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return domain.Rate{}, domain.ErrNotFound
 		}
 		return domain.Rate{}, err
 	}
+	r.ScrapedAt = time.Unix(scrapedAt, 0)
 	return r, nil
 }
 
@@ -185,11 +180,11 @@ func (s *Store) GetHistoryRates(ctx context.Context, currency, from, to string, 
 
 	if from != "" {
 		query += ` AND scraped_at >= ?`
-		args = append(args, from)
+		args = append(args, toUnixTS(from))
 	}
 	if to != "" {
 		query += ` AND scraped_at <= ?`
-		args = append(args, to)
+		args = append(args, toUnixTS(to))
 	}
 
 	query += ` ORDER BY scraped_at DESC`
@@ -213,9 +208,11 @@ func scanRates(rows *sql.Rows) ([]domain.Rate, error) {
 	var rates []domain.Rate
 	for rows.Next() {
 		var r domain.Rate
-		if err := rows.Scan(&r.ID, &r.Currency, &r.Value, &r.ScrapedAt); err != nil {
+		var scrapedAt int64
+		if err := rows.Scan(&r.ID, &r.Currency, &r.Value, &scrapedAt); err != nil {
 			return nil, fmt.Errorf("scan rate: %w", err)
 		}
+		r.ScrapedAt = time.Unix(scrapedAt, 0)
 		rates = append(rates, r)
 	}
 	if err := rows.Err(); err != nil {
@@ -225,4 +222,19 @@ func scanRates(rows *sql.Rows) ([]domain.Rate, error) {
 		rates = []domain.Rate{}
 	}
 	return rates, nil
+}
+
+// toUnixTS converts a date string to a Unix timestamp string for querying.
+// Accepts RFC3339, ISO date (2006-01-02), or a plain number (passthrough).
+func toUnixTS(s string) string {
+	if _, err := strconv.ParseInt(s, 10, 64); err == nil {
+		return s
+	}
+	for _, fmt := range []string{time.RFC3339, "2006-01-02"} {
+		t, err := time.Parse(fmt, s)
+		if err == nil {
+			return strconv.FormatInt(t.Unix(), 10)
+		}
+	}
+	return s
 }
