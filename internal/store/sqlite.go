@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/ivanosquis10/api-rates-venezuela/internal/domain"
 	_ "modernc.org/sqlite"
@@ -18,7 +19,16 @@ func New(dbPath string) (*sql.DB, error) {
 		return nil, fmt.Errorf("database path must not be empty")
 	}
 
-	db, err := sql.Open("sqlite", dbPath)
+	dsn := dbPath
+	if !strings.Contains(dsn, "_pragma=parse_time") && !strings.Contains(dsn, "parse_time=") {
+		if strings.Contains(dsn, "?") {
+			dsn += "&_pragma=parse_time(1)"
+		} else {
+			dsn += "?_pragma=parse_time(1)"
+		}
+	}
+
+	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
