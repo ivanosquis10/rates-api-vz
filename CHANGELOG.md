@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.2](https://github.com/ivanosquis10/rates-api-vz/compare/v1.5.1...v1.5.2) (2026-07-27)
+
+
+### Bug Fixes
+
+* **sqlite:** add parse_time pragma to database connection string ([559e64a](https://github.com/ivanosquis10/rates-api-vz/commit/559e64a94d30d20ac7477f79650baba69b366846))
+
 ## [1.5.1](https://github.com/ivanosquis10/rates-api-vz/compare/v1.5.0...v1.5.1) (2026-07-27)
 
 
