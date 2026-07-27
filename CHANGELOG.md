@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.1](https://github.com/ivanosquis10/rates-api-vz/compare/v1.5.0...v1.5.1) (2026-07-27)
+
+
+### Bug Fixes
+
+* **scraper:** disable TLS verification for BCV scraper ([67361ed](https://github.com/ivanosquis10/rates-api-vz/commit/67361edfaf326aa6965dcc7ecc8ee6e77320c1c3))
+
 ## [1.5.0](https://github.com/ivanosquis10/api-rates-venezuela/compare/v1.4.0...v1.5.0) (2026-07-27)
 
 
