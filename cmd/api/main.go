@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -47,6 +48,9 @@ func main() {
 	// Setup custom client with timeout settings
 	customTransport := http.DefaultTransport.(*http.Transport).Clone()
 	customTransport.TLSHandshakeTimeout = 10 * time.Second
+	customTransport.TLSClientConfig = &tls.Config{
+		InsecureSkipVerify: true,
+	}
 	client := &http.Client{
 		Transport: customTransport,
 		Timeout:   15 * time.Second,
