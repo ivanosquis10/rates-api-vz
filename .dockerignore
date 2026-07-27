@@ -1,0 +1,13 @@
+.git
+.gitignore
+.env
+*.db
+docs
+.agents
+.atl
+.claude
+.wayfinder
+openspec
+sdd
+CHANGELOG.md
+readme.md
