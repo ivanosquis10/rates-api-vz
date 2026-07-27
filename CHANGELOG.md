@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.0](https://github.com/ivanosquis10/api-rates-venezuela/compare/v1.4.0...v1.5.0) (2026-07-27)
+
+
+### Features
+
+* **docker:** add Dockerfile and docker-compose configuration for production ([248d56c](https://github.com/ivanosquis10/api-rates-venezuela/commit/248d56cb6b2df18405488269e28765619c9d92e8))
+
 ## [1.4.0](https://github.com/ivanosquis10/api-rates-venezuela/compare/v1.3.0...v1.4.0) (2026-07-16)
 
 
