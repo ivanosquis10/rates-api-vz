@@ -182,10 +182,9 @@ saved. Scheduled and startup scrapes use the scheduler retry policy.
 {
   "success": true,
   "data": {
-    "id": 1,
     "currency": "USD",
     "average": 123.45,
-    "updated_at": "2026-07-10T08:00:00Z"
+    "updatedAt": "2026-07-10T08:00:00Z"
   }
 }
 ~~~

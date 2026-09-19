@@ -105,6 +105,9 @@ func TestGetOfficialUSD(t *testing.T) {
 	if body.Data.Average != 36.5 {
 		t.Errorf("expected average=36.5, got %f", body.Data.Average)
 	}
+	if strings.Contains(w.Body.String(), `"id"`) {
+		t.Error("expected individual rate response not to serialize id")
+	}
 }
 
 func TestGetEUR(t *testing.T) {
@@ -210,6 +213,9 @@ func TestGetUSDHistory_Success(t *testing.T) {
 	}
 	if body.Data[0].Average != 37.0 {
 		t.Errorf("expected average=37.0, got %f", body.Data[0].Average)
+	}
+	if strings.Contains(w.Body.String(), `"id"`) {
+		t.Error("expected rate history response not to serialize id")
 	}
 }
 
