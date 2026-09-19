@@ -1,207 +1,270 @@
 <div align="center">
 
-# 🇻🇪 Venezuela Rates API
+# Venezuela Rates API
 
-**Exchange rates from Banco Central de Venezuela, automated and accessible.**
+**Official USD and EUR exchange rates published by the Banco Central de Venezuela.**
 
 [![Go](https://img.shields.io/badge/Go-1.25-00ADD8?style=flat-square&logo=go)](https://go.dev/)
-[![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
-[![Issues](https://img.shields.io/github/issues/ivanosquis10/api-rates-venezuela?style=flat-square)](https://github.com/ivanosquis10/api-rates-venezuela/issues)
+[![CI](https://github.com/ivanosquis10/rates-api-vz/actions/workflows/ci.yml/badge.svg)](https://github.com/ivanosquis10/rates-api-vz/actions/workflows/ci.yml)
+[![Issues](https://img.shields.io/github/issues/ivanosquis10/rates-api-vz?style=flat-square)](https://github.com/ivanosquis10/rates-api-vz/issues)
 
 </div>
 
 ---
 
-## What is this?
+## Overview
 
-A Go API that **scrapes daily exchange rates** (USD & EUR) from the [Banco Central de Venezuela](https://www.bcv.org.ve) website, stores them in **SQLite**, and exposes them through authenticated HTTP endpoints.
+Venezuela Rates API is a Go service that:
 
-Built with **Clean Architecture**, **Chi router**, and **unit tests**.
+1. Fetches official USD and EUR reference rates from the BCV website.
+2. Stores the rates and their publication timestamps in SQLite.
+3. Exposes authenticated HTTP endpoints for current and historical data.
+4. Refreshes rates automatically using scheduled jobs in the Caracas timezone.
+
+The service is designed to be small, self-contained, and easy to run with either Go or Docker.
 
 ## Features
 
-- 🔄 **Automatic daily scraping** — configured hour, Caracas timezone
-- 📊 **Two rate sources** — BCV reference (weighted average) + bank buy/sell rates
-- 🗄️ **SQLite storage** — lightweight, zero-config database
-- 🔐 **API Key authentication** — constant-time comparison, internal use
-- ⚡ **Rate limiting** — per-IP token bucket, configurable
-- 📈 **Historical data** — query rates by date range, currency, type
-- 🧪 **Tested** — unit tests, repository tests with SQLite in-memory
-- 📝 **Structured logging** — JSON logs via `slog`
+- Official USD and EUR reference rates from the BCV.
+- Automatic startup scrape plus scheduled refreshes.
+- Historical queries with date ranges and limits.
+- SQLite persistence with idempotent schema initialization.
+- API key authentication through the X-API-Key header.
+- Per-IP rate limiting.
+- CORS, panic recovery, request logging, and X-Request-ID responses.
+- JSON structured logs through log/slog.
+- Pure-Go SQLite driver; CGO is not required.
 
-## Tech Stack
+## Tech stack
 
-| Component | Technology |
-|-----------|-----------|
+| Area | Technology |
+| --- | --- |
 | Language | Go 1.25 |
-| HTTP Router | [Chi](https://github.com/go-chi/chi) |
-| Database | SQLite ([modernc.org/sqlite](https://pkg.go.dev/modernc.org/sqlite)) |
-| Scraping | [goquery](https://github.com/PuerkitoBio/goquery) |
-| Scheduler | [robfig/cron](https://github.com/robfig/cron) |
-| Rate Limiter | [golang.org/x/time/rate](https://pkg.go.dev/golang.org/x/time/rate) |
-| Logging | `log/slog` (stdlib) |
+| HTTP router | Chi |
+| Database | SQLite with modernc.org/sqlite |
+| HTML scraping | GoQuery |
+| Scheduler | robfig/cron |
+| Rate limiting | golang.org/x/time/rate |
+| Logging | log/slog |
 
 ## Architecture
 
-```
-cmd/api/main.go          → Entrypoint, dependency injection
-internal/
-  domain/                 → Entities, interfaces (pure, no deps)
-  usecase/                → Business logic
-  repository/sqlite/      → SQLite implementation
-  handler/                → HTTP handlers + routes
-  middleware/              → Auth, rate limiter
-  scraper/                → BCV scraping logic
-  scheduler/              → Daily cron job
-  config/                 → Environment variable loading
-```
+The project follows a lightweight Clean Architecture structure:
 
-**Dependency rule**: `domain` depends on nothing. Everything depends on `domain`.
+~~~text
+cmd/api/main.go
+  Application entrypoint and dependency wiring
 
-## Getting Started
+internal/domain
+  Domain entities, errors, and repository interfaces
 
-### Prerequisites
+internal/usecase
+  Application workflows and business rules
 
-- Go 1.25+ (pure Go SQLite is used, CGO is **not** required)
+internal/store
+  SQLite repository and schema initialization
 
-### Installation
+internal/scraper
+  BCV HTTP client and HTML parsing
 
-```bash
-git clone https://github.com/ivanosquis10/api-rates-venezuela.git
-cd api-rates-venezuela
+internal/scheduler
+  Scheduled scraping, retries, and startup execution
+
+internal/handler
+  HTTP handlers and request parsing
+
+internal/presenter
+  HTTP response mapping and error envelopes
+
+internal/middleware
+  Authentication, CORS, logging, recovery, and rate limiting
+~~~
+
+The dependency direction is inward: domain code must not depend on HTTP,
+SQLite, scraping, or other infrastructure details. Dependency wiring belongs
+in cmd/api/main.go.
+
+## Getting started
+
+### Requirements
+
+- Go 1.25 or newer.
+- Docker and Docker Compose are optional.
+- A local API key for authenticated requests.
+
+### Install
+
+~~~bash
+git clone https://github.com/ivanosquis10/rates-api-vz.git
+cd rates-api-vz
 go mod download
-```
+~~~
 
-### Configuration
+### Configure
 
-All configuration is loaded via environment variables. Prepare your local environment by copying the example file:
+Copy the example environment file:
 
-```bash
+~~~bash
 cp .env.example .env
-```
+~~~
 
-Ensure you configure `API_KEY` in your `.env` file.
+Set API_KEY before starting the service. The .env file is ignored by Git and
+must never contain values that are committed to the repository.
 
 | Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `PORT` | No | `8080` | Server port |
-| `DB_PATH` | No | `./rates.db` | SQLite database path |
-| `API_KEY` | **Yes** | — | API key for authorization in `X-API-Key` header |
-| `SCRAPE_HOUR` | No | `8` | Hour to execute daily scraping in Caracas timezone (0-23) |
-| `RATE_LIMIT` | No | `60` | Max requests allowed per minute per IP address |
+| --- | --- | --- | --- |
+| PORT | No | 8080 | HTTP server port |
+| DB_PATH | No | ./rates.db | SQLite database path |
+| API_KEY | Yes | — | Key expected in X-API-Key |
+| SCRAPE_CRON_MAINTENANCE | No | 0 8 * * * | Daily maintenance scrape |
+| SCRAPE_CRON_WINDOW | No | */5 8-18 * * 1-5 | Weekday refresh window |
+| RATE_LIMIT | No | 60 | Requests per minute per IP |
 
-### Running the Project
+Cron schedules use the America/Caracas timezone.
 
-#### Standard Run
-```bash
-go run cmd/api/main.go
-```
+### Run locally
 
-#### Run with Live-Reload (Recommended for Development)
-We support live-reloading using [Air](https://github.com/air-verse/air).
+~~~bash
+go run ./cmd/api
+~~~
 
-1. Install Air:
-```bash
+For live reload during development, install Air and run:
+
+~~~bash
 go install github.com/air-verse/air@latest
-```
-2. Start the project in live-reloading mode:
-```bash
 air
-```
+~~~
 
-### Testing
+### Run with Docker
 
-Run the test suite with the following command:
-```bash
-go test -v ./...
-```
+~~~bash
+docker compose up --build
+~~~
 
-## API Endpoints
+The Compose configuration persists SQLite data in the rates_data volume and
+uses the health endpoint for container checks.
 
-All endpoints require the `X-API-Key` header.
+## API
 
-### Get Current Rates
+All endpoints require:
 
-```http
-GET /rates?currency=USD&type=reference
-```
+~~~http
+X-API-Key: your-api-key
+~~~
 
-| Param | Type | Description |
-|-------|------|-------------|
-| `currency` | string | Filter by `USD` or `EUR` |
-| `type` | string | Filter by `reference`, `buy`, or `sell` |
+The base path is /api/v1.
 
-**Response:**
-```json
+### Endpoints
+
+| Method | Path | Description |
+| --- | --- | --- |
+| GET | /api/v1/health | Service health and API version |
+| GET | /api/v1/dollars | Latest USD rate as an array |
+| GET | /api/v1/dollars/official | Latest USD rate as an object |
+| GET | /api/v1/euros | Latest EUR rate as an array |
+| GET | /api/v1/euros/official | Latest EUR rate as an object |
+| GET | /api/v1/history/dollars | Historical USD rates |
+| GET | /api/v1/history/euros | Historical EUR rates |
+| POST | /api/v1/admin/scrape | Trigger an on-demand scrape |
+
+History endpoints accept from, to, and limit query parameters:
+
+~~~http
+GET /api/v1/history/dollars?from=2026-07-01&to=2026-07-10&limit=30
+~~~
+
+The admin scrape endpoint executes the scrape and returns the number of rates
+saved. Scheduled and startup scrapes use the scheduler retry policy.
+
+### Success response
+
+~~~json
 {
-  "data": [
-    {
-      "currency": "USD",
-      "rate_type": "reference",
-      "bank": null,
-      "value": 709.69,
-      "scraped_at": "2026-07-10T08:00:00-04:00"
-    }
-  ]
-}
-```
-
-### Get Historical Rates
-
-```http
-GET /rates/history?currency=USD&from=2026-07-01&to=2026-07-10&limit=30
-```
-
-| Param | Type | Description |
-|-------|------|-------------|
-| `currency` | string | Filter by currency |
-| `type` | string | Filter by rate type |
-| `from` | string | Start date (YYYY-MM-DD) |
-| `to` | string | End date (YYYY-MM-DD) |
-| `limit` | int | Max results (default: 100) |
-
-### Trigger Scrape (Admin)
-
-```http
-POST /admin/scrape
-```
-
-Returns immediately. Scraping runs in the background.
-
-### Error Response
-
-```json
-{
-  "error": {
-    "code": "UNAUTHORIZED",
-    "message": "Invalid or missing API key"
+  "success": true,
+  "data": {
+    "currency": "USD",
+    "average": 123.45,
+    "updatedAt": "2026-07-10T08:00:00Z"
   }
 }
-```
+~~~
 
-| Status | Code | When |
-|--------|------|------|
-| 401 | `UNAUTHORIZED` | Missing or invalid API key |
-| 429 | `RATE_LIMITED` | Too many requests ( Retry-After header included) |
-| 404 | `NOT_FOUND` | No rates found |
-| 500 | `INTERNAL_ERROR` | Unexpected server error |
+The list endpoints return an array in data. Every response includes an
+X-Request-ID header for tracing.
 
-## Project Status
+### Error response
 
-This project is **production-ready** and fully implemented following the design documents in `.wayfinder/` and the structured SDD specifications in `openspec/`.
+~~~json
+{
+  "success": false,
+  "code": "UNAUTHORIZED",
+  "error": "invalid or missing API key"
+}
+~~~
 
-### Implementation Tickets
+Common error codes include UNAUTHORIZED, BAD_REQUEST, RATE_LIMITED,
+NOT_FOUND, PROVIDER_ERROR, and INTERNAL_ERROR.
 
-| # | Ticket | Status |
-|---|--------|--------|
-| 1 | [Project Scaffolding](https://github.com/ivanosquis10/api-rates-venezuela/issues/2) | ✅ Complete |
-| 2 | [SQLite Repository](https://github.com/ivanosquis10/api-rates-venezuela/issues/3) | ✅ Complete |
-| 3 | [BCV Scraper](https://github.com/ivanosquis10/api-rates-venezuela/issues/4) | ✅ Complete |
-| 4 | [Rate Usecase](https://github.com/ivanosquis10/api-rates-venezuela/issues/5) | ✅ Complete |
-| 5 | [HTTP Server & Endpoints](https://github.com/ivanosquis10/api-rates-venezuela/issues/6) | ✅ Complete |
-| 6 | [Auth & Rate Limiter](https://github.com/ivanosquis10/api-rates-venezuela/issues/7) | ✅ Complete |
-| 7 | [Scheduler & Logging](https://github.com/ivanosquis10/api-rates-venezuela/issues/8) | ✅ Complete |
+## Testing and quality
+
+Run the same checks used by CI before opening a pull request:
+
+~~~bash
+go test ./...
+go test -race ./...
+go vet ./...
+go build ./cmd/api
+~~~
+
+When changing behavior:
+
+- Add or update focused tests next to the implementation.
+- Use table-driven tests for multiple scenarios.
+- Use deterministic HTML fixtures for scraper behavior.
+- Test both successful and failing paths.
+- Run gofmt on changed Go files.
+
+## Contributing
+
+Contributions should start from a GitHub Issue describing the problem, scope,
+acceptance criteria, and expected verification.
+
+~~~bash
+gh issue list --state open
+gh issue view <id>
+gh issue create --title "feat: short description" --body-file issue.md
+~~~
+
+Always create a dedicated branch for new work:
+
+~~~text
+feat/123-short-description
+fix/123-short-description
+chore/123-short-description
+~~~
+
+Use Conventional Commits, for example:
+
+~~~text
+feat: add EUR history endpoint
+fix: handle duplicate scraped rates
+test: cover scheduler retry cancellation
+docs: improve API documentation
+~~~
+
+Never work or commit directly on main or master. Pull requests should link
+the issue, explain the change, document verification commands, and mention
+any API, configuration, schema, or operational impact.
+
+## Development notes
+
+- Keep BCV selectors isolated in internal/scraper/scraper.go.
+- Preserve the response envelope and X-Request-ID contract.
+- Keep SQLite migrations idempotent and queries parameterized.
+- Do not commit .env, credentials, rates.db, or other runtime data.
+- Review docs/adr/ before changing the domain model or API shape.
 
 ## License
 
-MIT
+This project is distributed under the MIT License. See [LICENSE.md](LICENSE.md)
+for the full text.

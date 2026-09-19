@@ -15,15 +15,13 @@ import (
 )
 
 type RateResponse struct {
-	ID        int64     `json:"id"`
 	Currency  string    `json:"currency"`
 	Average   float64   `json:"average"`
-	UpdatedAt time.Time `json:"updated_at"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 func MapToRateResponse(r domain.Rate) RateResponse {
 	return RateResponse{
-		ID:        r.ID,
 		Currency:  r.Currency,
 		Average:   r.Value,
 		UpdatedAt: r.ScrapedAt,
