@@ -4,7 +4,7 @@ go 1.25.0
 
 require (
 	github.com/PuerkitoBio/goquery v1.12.0
-	github.com/go-chi/chi/v5 v5.3.1
+	github.com/go-chi/chi/v5 v5.4.0
 	github.com/joho/godotenv v1.5.1
 	github.com/robfig/cron/v3 v3.0.1
 	golang.org/x/time v0.15.0
